@@ -39,6 +39,8 @@ const elements = {
   updateRow: document.querySelector('#update-row'),
   updateDetail: document.querySelector('#update-detail'),
   updateTag: document.querySelector('#update-tag'),
+  workspaceShell: document.querySelector('#workspace-shell'),
+  workspaceFrame: document.querySelector('#workspace-frame'),
 }
 
 let currentStatus = null
@@ -74,7 +76,7 @@ const setupPreviewStatus = {
   message: 'Preparing Qwen 3.8 27B. 9.8 GB downloaded and verified. Interrupted downloads resume automatically',
   progress: 64,
   downloadedGb: 9.8,
-  downloadTotalGb: 16,
+  downloadTotalGb: 21.3,
   downloadRateMbps: 91.4,
   etaSeconds: 155,
   startedAt: new Date(Date.now() - 7 * 60 * 1000 - 24 * 1000).toISOString(),
@@ -168,6 +170,16 @@ function withoutTrailingPeriod(value) {
   return String(value || '').replace(/[.]+$/, '')
 }
 
+function showEmbeddedWorkspace(fresh = false) {
+  if (workspaceOpened) return
+  workspaceOpened = true
+  const suffix = fresh ? '?balto=new' : ''
+  elements.workspaceFrame.src = `http://127.0.0.1:3080/${suffix}`
+  elements.workspaceShell.hidden = false
+  document.body.classList.add('workspace-mode')
+  document.body.classList.remove('launch-pending')
+}
+
 function formatDuration(totalSeconds) {
   const seconds = Math.max(0, Math.round(Number(totalSeconds) || 0))
   if (seconds < 60) return `${seconds}s`
@@ -228,7 +240,7 @@ function renderJourney(status, progress, ready, failed, recovering) {
 
   if (stage === 'model') {
     const downloaded = Number(status.downloadedGb || 0)
-    const total = Number(status.downloadTotalGb || 16)
+    const total = Number(status.downloadTotalGb || 21.3)
     const rate = Number(status.downloadRateMbps || 0)
     const pieces = [downloaded > 0 ? `${downloaded.toFixed(1)} GB of about ${total.toFixed(0)} GB` : experience.activity]
     if (rate > 0) pieces.push(`${rate.toFixed(0)} MB/s`)
@@ -250,6 +262,15 @@ function render(status) {
   const ready = Boolean(status.workspaceReady && status.inferenceReady)
   const failed = status.phase === 'failed'
   const recovering = failed && canRecoverAutomatically(status) && setupRecoveryAttempts < MAX_SETUP_RECOVERY_ATTEMPTS
+
+  if (ready && invoke) {
+    const fresh = freshWorkspaceRequested
+    freshWorkspaceRequested = false
+    showEmbeddedWorkspace(fresh)
+    return
+  }
+
+  document.body.classList.remove('launch-pending')
 
   elements.progress.style.setProperty('--progress', Math.max(0, Math.min(100, progress)))
   elements.progressValue.textContent = `${progress}%`
@@ -309,12 +330,6 @@ function render(status) {
   elements.warning.hidden = !status.warning || recovering
   elements.warningText.textContent = recovering ? '' : status.warning || ''
 
-  if (ready && !workspaceOpened && invoke) {
-    workspaceOpened = true
-    const fresh = freshWorkspaceRequested
-    freshWorkspaceRequested = false
-    setTimeout(() => invoke('open_workspace', { fresh }).catch(() => { workspaceOpened = false }), 650)
-  }
 }
 
 function canRecoverAutomatically(status) {
@@ -348,6 +363,7 @@ async function refresh() {
       scheduleAutomaticRecovery(status)
     }
   } catch (error) {
+    document.body.classList.remove('launch-pending')
     elements.phaseMessage.textContent = String(error)
     elements.status.classList.add('error')
     elements.status.querySelector('span').textContent = 'Status unavailable'
@@ -417,7 +433,7 @@ async function installAvailableUpdate() {
 
 elements.primary.addEventListener('click', async () => {
   if (currentStatus?.workspaceReady) {
-    await runAction('open_workspace', { fresh: false })
+    showEmbeddedWorkspace(false)
     return
   }
   freshWorkspaceRequested = true

@@ -99,10 +99,133 @@
     }
   }
 
+  const mobileSidebarQuery = window.matchMedia('(max-width: 720px)')
+  function syncMobileSidebar() {
+    const sidebar = document.querySelector('.hHd-Xa_root')
+    const isOpen = mobileSidebarQuery.matches
+      && Boolean(sidebar?.querySelector('button[aria-label="Collapse sidebar"]'))
+    document.body.classList.toggle('balto-mobile-sidebar-open', isOpen)
+
+    let backdrop = document.querySelector('#balto-mobile-sidebar-backdrop')
+    if (!isOpen) {
+      backdrop?.remove()
+      return
+    }
+    if (backdrop) return
+
+    backdrop = document.createElement('button')
+    backdrop.id = 'balto-mobile-sidebar-backdrop'
+    backdrop.type = 'button'
+    backdrop.setAttribute('aria-label', 'Close sidebar')
+    backdrop.addEventListener('click', () => {
+      document.querySelector('.hHd-Xa_root button[aria-label="Collapse sidebar"]')?.click()
+    })
+    document.body.append(backdrop)
+  }
+  mobileSidebarQuery.addEventListener?.('change', syncMobileSidebar)
+
+  let attachmentTarget = null
+  function findPromptBox() {
+    return document.querySelector('textarea[placeholder="Message the agent"], textarea[placeholder*="Ask anything"], textarea')
+  }
+
+  function attachmentInput() {
+    let input = document.querySelector('#balto-attachment-input')
+    if (input) return input
+
+    input = document.createElement('input')
+    input.id = 'balto-attachment-input'
+    input.type = 'file'
+    input.accept = 'image/png,image/jpeg,image/webp,image/gif'
+    input.multiple = true
+    input.tabIndex = -1
+    input.setAttribute('aria-hidden', 'true')
+    input.addEventListener('change', () => {
+      const files = [...(input.files || [])]
+      const target = attachmentTarget?.isConnected ? attachmentTarget : findPromptBox()
+      attachmentTarget = null
+      input.value = ''
+      if (!target || files.length === 0) return
+
+      const clipboardData = {
+        files,
+        items: files.map((file) => ({
+          kind: 'file',
+          type: file.type,
+          getAsFile: () => file,
+        })),
+        types: ['Files'],
+        getData: () => '',
+      }
+      const paste = new Event('paste', { bubbles: true, cancelable: true })
+      Object.defineProperty(paste, 'clipboardData', { value: clipboardData })
+      target.dispatchEvent(paste)
+      target.focus({ preventScroll: true })
+    })
+    document.body.append(input)
+    return input
+  }
+
+  function openAttachmentPicker(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    attachmentTarget = findPromptBox()
+    attachmentInput().click()
+    document.querySelector('button[data-balto-add="true"][aria-expanded="true"]')?.click()
+  }
+
+  function mountAttachmentControl() {
+    for (const trigger of document.querySelectorAll('button[aria-label="Commands"], button[data-balto-add="true"]')) {
+      trigger.dataset.baltoAdd = 'true'
+      trigger.setAttribute('aria-label', 'Add')
+      trigger.title = 'Add'
+    }
+
+    for (const tooltip of document.querySelectorAll('[role="tooltip"]')) {
+      if ((tooltip.textContent || '').trim() === 'Commands') tooltip.textContent = 'Add'
+    }
+
+    for (const menu of document.querySelectorAll('[role="listbox"][aria-label="Trigger suggestions"]')) {
+      if (menu.querySelector('[data-balto-attachment-option]')) continue
+      const viewport = menu.firstElementChild
+      const commandsTitle = viewport?.querySelector('[role="presentation"][data-source="command"]')
+      const firstOption = viewport?.querySelector('[role="option"]')
+      if (!viewport || !commandsTitle || !firstOption) continue
+
+      const addTitle = commandsTitle.cloneNode(true)
+      addTitle.textContent = 'Add'
+      addTitle.dataset.source = 'balto-attachment'
+
+      const option = document.createElement('button')
+      option.type = 'button'
+      option.role = 'option'
+      option.className = `${firstOption.className.replace(/\s*\S*active\S*/g, '')} balto-attachment-option`
+      option.dataset.baltoAttachmentOption = 'true'
+      option.setAttribute('aria-selected', 'false')
+      option.setAttribute('aria-label', 'Attach file')
+      const optionParts = [...firstOption.children]
+      const nameClass = optionParts[0]?.className || ''
+      const descriptionClass = optionParts[1]?.className || ''
+      option.innerHTML = `
+        <span class="balto-attachment-paperclip" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M9.5 12.5 15.9 6a3.2 3.2 0 0 1 4.6 4.5l-8.7 8.8a5 5 0 0 1-7.1-7.1l8.4-8.4a2.8 2.8 0 0 1 4 4l-8.4 8.4a.9.9 0 1 1-1.3-1.3l7.6-7.6"/></svg>
+        </span>
+        <span class="${nameClass}">Attach file</span>
+        <span class="${descriptionClass}">PNG, JPG, WebP, or GIF</span>
+      `
+      option.addEventListener('mousedown', (event) => event.preventDefault())
+      option.addEventListener('click', openAttachmentPicker)
+      viewport.insertBefore(addTitle, commandsTitle)
+      viewport.insertBefore(option, commandsTitle)
+    }
+  }
+
   openFreshSession()
   dismissInternalTestingNotice()
   brandVisibleWorkspace()
   simplifyEffortControls()
+  syncMobileSidebar()
+  mountAttachmentControl()
 
   const style = document.createElement('style')
   style.textContent = `
@@ -148,10 +271,116 @@
     .balto-sidebar-wordmark { display: flex; align-items: baseline; gap: 7px; white-space: nowrap; font-family: Inter, "Segoe UI", sans-serif; }
     .balto-sidebar-name { font-size: 15px; font-weight: 760; letter-spacing: -.3px; }
     .balto-sidebar-label { color: rgba(245,247,248,.48); font-size: 7px; font-weight: 850; letter-spacing: 1.35px; text-transform: uppercase; }
+    #balto-attachment-input { position: fixed !important; width: 1px !important; height: 1px !important; inset: auto auto 0 0 !important; opacity: 0 !important; pointer-events: none !important; }
+    .balto-attachment-option { width: 100%; }
+    .balto-attachment-paperclip { width: 18px; height: 18px; flex: 0 0 18px; display: inline-flex; align-items: center; justify-content: center; color: #72dba5; }
+    .balto-attachment-paperclip svg { width: 17px; height: 17px; overflow: visible; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     [data-balto-hero="true"] { display: inline-flex !important; align-items: center; justify-content: center; }
     [data-balto-hero="true"] > img { width: 31px !important; height: 31px !important; }
     [class*="_previewBadge"] {
       display: none !important;
+    }
+    #balto-mobile-sidebar-backdrop { display: none; }
+    @media (max-width: 720px) {
+      html, body, #root { width: 100%; min-width: 0; overflow: hidden; }
+      .pI_x6G_frame { grid-template-columns: 0 minmax(0, 1fr) 0 !important; }
+      .pI_x6G_sidebarCol { position: relative; z-index: 1201; overflow: visible !important; }
+      .pI_x6G_detailsCol, .pI_x6G_handle { display: none !important; }
+      .hHd-Xa_root {
+        position: fixed !important;
+        z-index: 1202;
+        inset: 0 auto 0 0;
+        width: min(86vw, 320px) !important;
+        height: 100dvh !important;
+        padding: max(8px, env(safe-area-inset-top)) 12px max(8px, env(safe-area-inset-bottom)) !important;
+        border-right: 1px solid rgba(255,255,255,.1);
+        box-shadow: 24px 0 70px rgba(0,0,0,.46);
+      }
+      .hHd-Xa_root.hHd-Xa_collapsed {
+        inset: max(8px, env(safe-area-inset-top)) auto auto max(8px, env(safe-area-inset-left));
+        width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        padding: 4px !important;
+        overflow: visible !important;
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 14px;
+        background: rgba(27,30,35,.94);
+        box-shadow: 0 8px 28px rgba(0,0,0,.3);
+        backdrop-filter: blur(16px);
+      }
+      .hHd-Xa_collapsed > :not(.hHd-Xa_logoRow) { display: none !important; }
+      .hHd-Xa_collapsed .hHd-Xa_logoRow { width: 36px; height: 36px; margin: 0; padding: 0; overflow: visible; }
+      .hHd-Xa_collapsed .hHd-Xa_toggle { width: 36px !important; height: 36px !important; }
+      .hHd-Xa_root:not(.hHd-Xa_collapsed) .hHd-Xa_logoRow { position: relative; z-index: 1; height: 52px; margin: 0 0 8px; padding: 4px 0; }
+      .hHd-Xa_root:not(.hHd-Xa_collapsed) .hHd-Xa_toggle { width: 40px; height: 40px; }
+      #balto-mobile-sidebar-backdrop {
+        position: fixed;
+        z-index: 1200;
+        inset: 0;
+        display: block;
+        width: 100vw;
+        height: 100dvh;
+        padding: 0;
+        border: 0;
+        background: rgba(0,0,0,.58);
+        cursor: default;
+      }
+      #balto-live-bar {
+        top: max(8px, env(safe-area-inset-top));
+        right: max(8px, env(safe-area-inset-right)) !important;
+        height: 44px;
+        gap: 5px;
+        padding: 0 9px 0 6px;
+        border-radius: 14px;
+        pointer-events: none;
+        transition: opacity .16s ease, transform .16s ease;
+      }
+      body.balto-mobile-sidebar-open #balto-live-bar { opacity: 0; transform: translateY(-8px); }
+      #balto-live-bar .balto-sprinter { width: 28px; height: 26px; }
+      #balto-live-bar .balto-sprinter img { width: 25px; height: 25px; }
+      #balto-live-bar .balto-sprinter::before, #balto-live-bar .balto-sprinter::after { right: 22px; }
+      #balto-live-bar .balto-meter { min-width: 64px; gap: 4px; }
+      #balto-live-bar .balto-value { font-size: 20px; letter-spacing: -1px; }
+      #balto-live-bar .balto-unit { font-size: 7px; letter-spacing: .5px; }
+      .wSkVaW_root { --dsh-chat-content-width: 100%; --dsh-composer-card-max-width: 100%; --dsh-composer-side-clearance: 8px; }
+      .wSkVaW_header { position: relative; min-height: 88px !important; padding: 0 !important; }
+      .wSkVaW_titleRow { display: none !important; }
+      .wSkVaW_tabs { position: absolute !important; right: 0; bottom: 8px; left: 0; width: 100%; margin: 0 !important; padding: 0 !important; justify-content: center !important; gap: 32px !important; }
+      .Md3f7G_scroll { padding: 12px 16px; }
+      .uV2eYG_root { padding: 0 8px calc(8px + env(safe-area-inset-bottom)); }
+      .uV2eYG_card { gap: 8px; border-radius: 18px; }
+      .uV2eYG_input, .uV2eYG_mirror, .uV2eYG_backdrop { font-size: 16px; padding-inline: 13px; }
+      .uV2eYG_row { min-width: 0; gap: 6px; padding: 2px 6px 6px; }
+      .uV2eYG_tools { flex: 0 0 auto; gap: 8px; }
+      .uV2eYG_modes, .uV2eYG_trailing { min-width: 0; gap: 6px; }
+      .uV2eYG_trailing { flex: 1 1 auto; justify-content: flex-end; }
+      ._7KE1Ra_root { min-width: 0; max-width: 118px; }
+      ._7KE1Ra_trigger { width: 100% !important; min-width: 0; max-width: 100% !important; overflow: hidden; }
+      ._7KE1Ra_triggerLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      ._7KE1Ra_menu { right: -46px !important; left: auto !important; max-width: calc(100vw - 24px) !important; }
+      .uV2eYG_select { max-width: 136px; padding-left: 5px; }
+      [role="tooltip"] { display: none !important; }
+      .balto-attachment-option { min-height: 44px; }
+      .VOzbGW_overlay { align-items: stretch !important; padding: 0 !important; }
+      .VOzbGW_panel { width: 100vw !important; max-width: none !important; height: 100dvh !important; max-height: none !important; border-radius: 0 !important; flex-direction: column !important; }
+      .VOzbGW_nav { width: 100% !important; flex: 0 0 auto !important; gap: 8px !important; padding: max(10px, env(safe-area-inset-top)) 10px 0 !important; }
+      .VOzbGW_navTitle { display: none; }
+      .VOzbGW_navList { width: 100% !important; min-height: 46px; flex-direction: row !important; gap: 4px !important; padding-bottom: 8px !important; overflow-x: auto !important; overflow-y: hidden !important; scrollbar-width: none; }
+      .VOzbGW_navList::-webkit-scrollbar { display: none; }
+      .VOzbGW_navCell { width: auto !important; flex: 0 0 auto !important; height: 38px !important; padding: 8px 11px !important; }
+      .VOzbGW_content { min-height: 0 !important; flex: 1 1 auto !important; }
+      .VOzbGW_header { height: 48px !important; padding: 8px 10px !important; }
+      .VOzbGW_options { min-height: 0 !important; padding: 0 16px calc(20px + env(safe-area-inset-bottom)) !important; overscroll-behavior: contain; }
+    }
+    @media (max-width: 360px) {
+      #balto-live-bar { padding-right: 7px; }
+      #balto-live-bar .balto-meter { min-width: 56px; }
+      #balto-live-bar .balto-value { font-size: 18px; }
+      .Md3f7G_scroll { padding-inline: 12px; }
+      .uV2eYG_root { padding-inline: 6px; }
+      .uV2eYG_tools { gap: 4px; }
+      ._7KE1Ra_root { max-width: 88px; }
     }
     @media (prefers-reduced-motion: reduce) {
       #balto-live-bar .balto-sprinter img,
@@ -210,6 +439,7 @@
   const replacements = new Map([
     ['DeepSeek Harness', 'Balto Speedrunner'],
     ['DeepSeek-Harness', 'Balto Speedrunner'],
+    ['deepseek_harness', 'Balto'],
     ['@deepseek-ai/dsh-system-prompt', 'Balto system prompt'],
   ])
   function replaceText(root) {
@@ -224,6 +454,7 @@
   replaceText(document.body)
   new MutationObserver((mutations) => {
     for (const mutation of mutations) {
+      if (mutation.type === 'characterData') replaceText(mutation.target.parentNode)
       for (const node of mutation.addedNodes) {
         if (node.nodeType === Node.TEXT_NODE) replaceText(node.parentNode)
         else if (node.nodeType === Node.ELEMENT_NODE) replaceText(node)
@@ -232,6 +463,8 @@
     dismissInternalTestingNotice()
     brandVisibleWorkspace()
     simplifyEffortControls()
+    syncMobileSidebar()
+    mountAttachmentControl()
     requestAnimationFrame(positionSpeedBar)
-  }).observe(document.body, { childList: true, subtree: true })
+  }).observe(document.body, { childList: true, characterData: true, subtree: true })
 })()

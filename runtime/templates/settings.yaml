@@ -1,7 +1,7 @@
 agent-default-model:
   provider: balto
   model: balto-qwen-3.8-27b
-  reasoningEffort: off
+  reasoningEffort: medium
 
 permission:
   defaultPreset: danger-full-access
@@ -19,9 +19,22 @@ llm-pi-ai:
       defaultInput:
         - text
         - image
+      retryPolicy:
+        mode: normal
+        maxRetries: 5
+        retryableCodes:
+          - EMPTY_RESPONSE
+          - RATE_LIMIT
+          - SERVER
+          - TIMEOUT
+          - TRANSPORT
+        backoff:
+          initialDelayMs: 500
+          maxDelayMs: 5000
+          jitterRatio: 0.1
       models:
         - id: balto-qwen-3.8-27b
-          name: Qwen 3.8 27B - Balto Turbo
+          name: Qwen 3.8 27B - Optimized Speed
           contextWindow: 262144
           maxTokens: 32768
           input:
@@ -29,7 +42,9 @@ llm-pi-ai:
             - image
           reasoningEfforts:
             off: none
-            high: high
+            low: low
+            medium: medium
+            high: xhigh
           compat:
             thinkingFormat: deepseek
-            supportsReasoningEffort: false
+            supportsReasoningEffort: true

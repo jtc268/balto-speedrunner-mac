@@ -9,7 +9,13 @@
     <link rel="stylesheet" href="/styles.css" />
     <script defer src="/app.js"></script>
   </head>
-  <body>
+  <body class="launch-pending">
+    <section id="workspace-shell" class="workspace-shell" hidden>
+      <div class="workspace-dragbar" data-tauri-drag-region>
+        <span class="workspace-brand" data-tauri-drag-region><img src="/balto-mark.svg" alt="" /> Balto</span>
+      </div>
+      <iframe id="workspace-frame" title="Balto coding workspace" allow="clipboard-read; clipboard-write"></iframe>
+    </section>
     <div class="noise" aria-hidden="true"></div>
     <header class="topbar" data-tauri-drag-region>
       <a class="brand" href="#" aria-label="Balto Speedrunner home">
@@ -99,7 +105,7 @@
             </li>
             <li id="setup-step-model">
               <span class="step-marker">3</span>
-              <div><strong>Download Qwen</strong><span>About 17 GB with native vision, resumable and stored locally</span></div>
+              <div><strong>Download Qwen</strong><span>About 21 GB with native vision, resumable and stored locally</span></div>
             </li>
             <li id="setup-step-launch">
               <span class="step-marker">4</span>
@@ -148,7 +154,7 @@
           <button class="icon-button" value="cancel" aria-label="Close settings" type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
         <div class="setting-row">
-          <div><strong>Model configuration</strong><span>Qwen 3.8 27B 4-bit, Turbo D3, context sized to this Mac</span></div>
+          <div><strong>Model configuration</strong><span>Qwen 3.8 27B Optimized Speed, MTPLX 2.7 Turbo D3, medium reasoning</span></div>
           <span class="tag">PINNED</span>
         </div>
         <button class="setting-row update-row" id="update-row" type="button">
@@ -158,7 +164,7 @@
         <button class="coffee-button" id="coffee-button" type="button">
           <span>☕</span><div><strong>Buy me a coffee</strong><small>Support fast local AI for more GPUs</small></div>
         </button>
-        <p class="legal">Balto Speedrunner © 2026 Adore LLC. Inference uses Apache-2.0 MTPLX and Apple MLX. The coding harness includes MIT-licensed DeepSeek software. Qwen model weights use their own license.</p>
+        <p class="legal">Balto Speedrunner © 2026 Adore LLC. Powered by MTPLX: github.com/youssofal/MTPLX. Inference uses Apple MLX. The coding harness includes MIT-licensed DeepSeek software. Qwen model weights use their own license.</p>
       </form>
     </dialog>
 
