@@ -65,6 +65,9 @@ test('closing the app synchronously stops every owned process group', async () =
   assert.match(native, /api\.prevent_close\(\)/)
   assert.match(native, /stop_everything\(window\.app_handle\(\)\)/)
   assert.match(native, /window\.app_handle\(\)\.exit\(0\)/)
+  assert.match(native, /RunEvent::ExitRequested/)
+  assert.match(native, /RunEvent::Exit/)
+  assert.match(native, /stop_everything\(app_handle\)/)
 })
 
 test('Mac bundle is native, movable, updateable, and uses one embedded window', async () => {

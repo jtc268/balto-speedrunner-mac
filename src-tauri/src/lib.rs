@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Manager, WindowEvent};
+use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_updater::UpdaterExt;
 
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
@@ -257,7 +257,7 @@ fn navigate_to_workspace(app: &AppHandle, fresh: bool) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -289,6 +289,12 @@ pub fn run() {
             install_update,
             open_workspace
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Balto Speedrunner");
+        .build(tauri::generate_context!())
+        .expect("error while building Balto Speedrunner");
+
+    app.run(|app_handle, event| {
+        if matches!(event, RunEvent::ExitRequested { .. } | RunEvent::Exit) {
+            stop_everything(app_handle);
+        }
+    });
 }
