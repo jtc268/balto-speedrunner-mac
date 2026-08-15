@@ -1,22 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="190" viewBox="0 0 1120 190" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="112" viewBox="0 0 760 112" role="img" aria-labelledby="title desc">
   <title id="title">Download Balto for Mac</title>
-  <desc id="desc">Apple Silicon download button</desc>
+  <desc id="desc">Latest Apple Silicon release for macOS 14 or newer</desc>
   <defs>
-    <linearGradient id="iconSurface" x1="0" y1="0" x2="0" y2="1">
-      <stop stop-color="#f7f7f7"/>
-      <stop offset="1" stop-color="#cfcfcf"/>
+    <linearGradient id="button" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7847"/>
+      <stop offset="1" stop-color="#ff5f32"/>
     </linearGradient>
+    <filter id="shadow" x="-10%" y="-35%" width="120%" height="170%">
+      <feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#ff6b35" flood-opacity=".22"/>
+    </filter>
   </defs>
-  <rect x="8" y="8" width="1104" height="174" rx="38" fill="#111318" stroke="#ff6b35" stroke-width="8"/>
-  <g transform="translate(61 52) scale(1.35)">
-    <rect width="64" height="64" rx="15" fill="url(#iconSurface)" stroke="#ffffff" stroke-opacity="0.7"/>
-    <path fill="#ff6b35" d="M11 19 23 8l4 12c3-1 7-1 10 0L42 8l11 11-5 12c2 4 2 9 0 13-3 7-9 11-16 11S19 51 16 44c-2-4-2-9 0-13l-5-12Z"/>
-    <path fill="#101114" d="M24 32c2-2 5-3 8-3s6 1 8 3l-2 12-6 5-6-5-2-12Z"/>
-    <circle cx="23" cy="29" r="2.5" fill="#101114"/>
-    <circle cx="41" cy="29" r="2.5" fill="#101114"/>
-    <path fill="#ff6b35" d="M28 38h8l-4 4-4-4Z"/>
-  </g>
-  <text x="184" y="88" fill="#ffffff" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="48" font-weight="750">Download Balto for Mac</text>
-  <text x="184" y="136" fill="#bdc2ca" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="28" font-weight="520">Apple Silicon  |  macOS 14 or newer</text>
-  <path d="M1000 61v54m-24-22 24 24 24-24M972 137h56" fill="none" stroke="#ff6b35" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="2" y="2" width="756" height="108" rx="22" fill="url(#button)" filter="url(#shadow)"/>
+  <path d="M56 30v39m-16-15 16 16 16-16M37 82h38" fill="none" stroke="#101318" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="96" y="52" fill="#101318" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="25" font-weight="800">Download Balto for Mac</text>
+  <text x="96" y="79" fill="#2a1a15" font-family="Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="14" font-weight="650">Latest beta  •  Apple Silicon  •  macOS 14+</text>
+  <path d="m700 43 13 13-13 13" fill="none" stroke="#101318" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

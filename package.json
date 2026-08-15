@@ -1,7 +1,7 @@
 {
   "name": "balto-speedrunner-mac",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One-click Qwen 3.8 27B coding agent for Apple Silicon",
   "license": "UNLICENSED",
   "author": "Adore LLC",
@@ -13,7 +13,7 @@
     "benchmark:local": "node scripts/benchmark-local.mjs",
     "audit:long-run": "node scripts/audit-long-run.mjs",
     "smoke:forced-compaction": "node scripts/smoke-forced-compaction.mjs",
-    "check": "node --check src/app.js && node --check runtime/balto.mjs && node --check runtime/configure-settings.mjs && node --check runtime/install-vision.mjs && node --check runtime/gateway.mjs && node --check runtime/patch-dsh.mjs && node --check runtime/ensure-workspace.mjs && node --check scripts/audit-long-run.mjs && node --check scripts/smoke-forced-compaction.mjs && node --check scripts/benchmark-local.mjs && bash -n runtime/balto.sh && bash -n scripts/prepare-runtime.sh",
+    "check": "node --check src/app.js && node --check runtime/balto.mjs && node --check runtime/configure-settings.mjs && node --check runtime/install-vision.mjs && node --check runtime/gateway.mjs && node --check runtime/patch-dsh.mjs && node --check runtime/ensure-workspace.mjs && node --check scripts/audit-long-run.mjs && node --check scripts/smoke-forced-compaction.mjs && node --check scripts/benchmark-local.mjs && bash -n runtime/balto.sh && bash -n scripts/prepare-runtime.sh && bash -n scripts/verify-release.sh",
     "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {

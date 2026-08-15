@@ -79,23 +79,26 @@
   }
 
   function simplifyEffortControls() {
+    for (const trigger of document.querySelectorAll('button[aria-label^="Select model"]')) {
+      const root = trigger.parentElement
+      if (root) root.style.display = 'none'
+    }
+
     for (const effort of document.querySelectorAll('[class*="triggerEffort"]')) {
-      if ((effort.textContent || '').trim() !== 'Off') continue
       effort.style.display = 'none'
       const trigger = effort.closest('button')
       if (!trigger) continue
-      trigger.title = (trigger.title || '').replace(/\s+\S+\s+Off\s*$/, '')
+      trigger.title = (trigger.title || '').replace(/\s+\S+\s+(?:Off|Low|Medium|High)\s*$/i, '')
       trigger.setAttribute(
         'aria-label',
-        (trigger.getAttribute('aria-label') || '').replace(/,?\s*reasoning effort Off\s*$/i, ''),
+        (trigger.getAttribute('aria-label') || '').replace(/,?\s*reasoning effort (?:Off|Low|Medium|High)\s*$/i, ''),
       )
     }
 
     for (const label of document.querySelectorAll('[class*="cellLabel"]')) {
       if ((label.textContent || '').trim() !== 'Effort') continue
       const row = label.closest('[role="menuitem"]')
-      const value = row?.querySelector('[class*="cellValue"]')
-      if (row && (value?.textContent || '').trim() === 'Off') row.style.display = 'none'
+      if (row) row.style.display = 'none'
     }
   }
 
@@ -229,6 +232,10 @@
 
   const style = document.createElement('style')
   style.textContent = `
+    button[aria-label^="Select model"],
+    div:has(> button[aria-label^="Select model"]) {
+      display: none !important;
+    }
     #balto-live-bar {
       --balto-speed: #54df9b;
       position: fixed;
