@@ -162,12 +162,18 @@ test('long jobs compact, retry transient streams, and continue automatically', a
 test('release claims use the installed app benchmark', async () => {
   const readme = await read('README.md')
   const hero = await read('.github/assets/readme-hero.svg')
+  const download = await read('.github/assets/download-mac.svg')
   const packageJson = JSON.parse(await read('package.json'))
-  assert.match(readme, /Up to 2x Qwen 3\.8 27B/)
+  assert.match(readme, /2x\+ inference speed for Qwen 3\.8 27B/)
   assert.doesNotMatch(`${readme}\n${hero}`, /triple|3\.03×|84\.7/i)
-  assert.match(hero, /1\.99×/)
-  assert.match(hero, /55\.5/)
-  assert.match(hero, /fill="#FF6B35"/)
+  assert.match(hero, />2X\+<\/text>/)
+  assert.match(hero, />INFERENCE SPEED<\/text>/)
+  assert.doesNotMatch(hero, /1\.99×|55\.5|AUTOREGRESSIVE/)
+  for (const asset of [hero, download]) {
+    assert.match(asset, /M11 19 23 8l4 12/)
+    assert.match(asset, /M24 32c2-2 5-3 8-3s6 1 8 3/)
+    assert.doesNotMatch(asset, /<circle cx="31" cy="31" r="31"|<circle cx="104" cy="95" r="54"/)
+  }
   assert.equal(packageJson.scripts['audit:long-run'], 'node scripts/audit-long-run.mjs')
   assert.equal(packageJson.scripts['smoke:forced-compaction'], 'node scripts/smoke-forced-compaction.mjs')
 })
