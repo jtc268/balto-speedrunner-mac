@@ -53,7 +53,13 @@
     "macOS": {
       "minimumSystemVersion": "14.0",
       "entitlements": "entitlements.plist",
-      "signingIdentity": null
+      "signingIdentity": null,
+      "dmg": {
+        "background": "dmg-background.png",
+        "windowSize": { "width": 660, "height": 400 },
+        "appPosition": { "x": 330, "y": 240 },
+        "applicationFolderPosition": { "x": 900, "y": 900 }
+      }
     }
   },
   "plugins": {

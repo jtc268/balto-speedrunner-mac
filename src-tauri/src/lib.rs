@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -129,6 +129,67 @@ fn stop_everything(app: &AppHandle) {
         return;
     }
     let _ = run_action_sync(app, "stop");
+}
+
+#[cfg(target_os = "macos")]
+fn install_from_disk_image() -> Result<bool, String> {
+    let executable = std::env::current_exe()
+        .map_err(|error| format!("Cannot locate the running Balto app: {error}"))?;
+    let bundle = executable
+        .ancestors()
+        .find(|ancestor| {
+            ancestor
+                .extension()
+                .is_some_and(|extension| extension == "app")
+        })
+        .ok_or_else(|| "Cannot locate the Balto application bundle.".to_string())?;
+    let volumes = Path::new("/Volumes");
+    let relative = match bundle.strip_prefix(volumes) {
+        Ok(relative) => relative,
+        Err(_) => return Ok(false),
+    };
+    let volume_name = relative
+        .components()
+        .next()
+        .ok_or_else(|| "Cannot locate the Balto installer disk.".to_string())?;
+    let volume = volumes.join(volume_name.as_os_str());
+    let installed = PathBuf::from("/Applications/Balto Speedrunner.app");
+
+    let copied = Command::new("/usr/bin/ditto")
+        .arg(bundle)
+        .arg(&installed)
+        .status()
+        .map_err(|error| format!("Could not copy Balto into Applications: {error}"))?;
+    if !copied.success() {
+        return Err(format!("Could not copy Balto into Applications: {copied}"));
+    }
+
+    let verified = Command::new("/usr/bin/codesign")
+        .args(["--verify", "--deep", "--strict"])
+        .arg(&installed)
+        .status()
+        .map_err(|error| format!("Could not verify the installed Balto app: {error}"))?;
+    if !verified.success() {
+        return Err("The installed Balto app did not pass signature verification.".into());
+    }
+
+    Command::new("/bin/sh")
+        .arg("-c")
+        .arg("sleep 1; /usr/bin/open -n \"$1\"; sleep 2; /usr/sbin/diskutil eject \"$2\" >/dev/null 2>&1 || true")
+        .arg("balto-self-installer")
+        .arg(&installed)
+        .arg(&volume)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|error| format!("Could not launch the installed Balto app: {error}"))?;
+    Ok(true)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn install_from_disk_image() -> Result<bool, String> {
+    Ok(false)
 }
 
 fn run_service_watchdog(app: AppHandle) {
@@ -265,6 +326,14 @@ pub fn run() {
             }
         }))
         .setup(|app| {
+            if install_from_disk_image()? {
+                SHUTTING_DOWN.store(true, Ordering::SeqCst);
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+                app.handle().exit(0);
+                return Ok(());
+            }
             run_service_watchdog(app.handle().clone());
             Ok(())
         })
