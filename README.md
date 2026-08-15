@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/assets/readme-hero.svg" alt="Balto Speedrunner: Up to 2x Qwen 3.8 27B inference speed on Mac" width="100%">
+  <img src=".github/assets/readme-hero.svg" alt="Balto Speedrunner: 2x+ inference speed for Qwen 3.8 27B on Mac" width="100%">
 </p>
 
 <p align="center">
