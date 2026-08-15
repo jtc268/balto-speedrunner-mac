@@ -145,6 +145,19 @@ test('long jobs compact, retry transient streams, and continue automatically', a
   assert.match(migration, /currentModels/)
 })
 
+test('release claims use the installed app benchmark', async () => {
+  const readme = await read('README.md')
+  const hero = await read('.github/assets/readme-hero.svg')
+  const packageJson = JSON.parse(await read('package.json'))
+  assert.match(readme, /Up to 2x Qwen 3\.8 27B/)
+  assert.doesNotMatch(`${readme}\n${hero}`, /triple|3\.03×|84\.7/i)
+  assert.match(hero, /1\.99×/)
+  assert.match(hero, /55\.5/)
+  assert.match(hero, /fill="#FF6B35"/)
+  assert.equal(packageJson.scripts['audit:long-run'], 'node scripts/audit-long-run.mjs')
+  assert.equal(packageJson.scripts['smoke:forced-compaction'], 'node scripts/smoke-forced-compaction.mjs')
+})
+
 test('readiness polling never generates model work', async () => {
   const runtime = await read('runtime/balto.mjs')
   assert.match(runtime, /enginePort}\/v1\/models/)
@@ -156,7 +169,7 @@ test('product UI is Mac-first and subscription-free', async () => {
   const app = await read('src/app.js')
   const config = JSON.parse(await read('src-tauri/tauri.conf.json'))
   assert.match(html, /Built for Apple Silicon/)
-  assert.match(html, /up to 3× faster/)
+  assert.match(html, /up to 2× faster/)
   assert.match(html, /No Homebrew, Docker, Terminal setup, account, or subscription required/)
   assert.match(html, /About 21 GB/)
   assert.match(html, /Powered by MTPLX: github\.com\/youssofal\/MTPLX/)

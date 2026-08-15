@@ -11,7 +11,9 @@
     "dev": "npm run prepare:runtime && tauri dev --target aarch64-apple-darwin",
     "build": "npm run prepare:runtime && tauri build --target aarch64-apple-darwin",
     "benchmark:local": "node scripts/benchmark-local.mjs",
-    "check": "node --check src/app.js && node --check runtime/balto.mjs && node --check runtime/configure-settings.mjs && node --check runtime/install-vision.mjs && node --check runtime/gateway.mjs && node --check runtime/patch-dsh.mjs && node --check runtime/ensure-workspace.mjs && node --check scripts/benchmark-local.mjs && bash -n runtime/balto.sh && bash -n scripts/prepare-runtime.sh",
+    "audit:long-run": "node scripts/audit-long-run.mjs",
+    "smoke:forced-compaction": "node scripts/smoke-forced-compaction.mjs",
+    "check": "node --check src/app.js && node --check runtime/balto.mjs && node --check runtime/configure-settings.mjs && node --check runtime/install-vision.mjs && node --check runtime/gateway.mjs && node --check runtime/patch-dsh.mjs && node --check runtime/ensure-workspace.mjs && node --check scripts/audit-long-run.mjs && node --check scripts/smoke-forced-compaction.mjs && node --check scripts/benchmark-local.mjs && bash -n runtime/balto.sh && bash -n scripts/prepare-runtime.sh",
     "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {
