@@ -129,6 +129,8 @@ test('harness declares vision, terminal, web, and computer tools', async () => {
   assert.match(patch, /Explicit image attachments in user messages are visible/)
   assert.match(patch, /do not search the workspace or take a new screenshot/)
   assert.match(patch, /patchFirstTurnImageOrdering/)
+  assert.match(patch, /patchCodeModeFallback/)
+  assert.match(patch, /mode: both/)
   assert.match(patch, /for \(const message of orderedMessages\)/)
   assert.match(ui, /triggerEffort/)
   assert.match(ui, /button\[aria-label\^="Select model"\]/)

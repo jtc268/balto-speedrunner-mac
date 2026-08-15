@@ -158,4 +158,31 @@ async function patchFirstTurnImageOrdering() {
 }
 
 await patchFirstTurnImageOrdering()
+
+async function patchCodeModeFallback() {
+  const presetPath = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh', 'config', 'agent-presets', 'code', 'agent.cordis.yml')
+  try {
+    await access(presetPath)
+  } catch {
+    throw new Error('The Balto Code mode preset was not found')
+  }
+
+  const original = await readFile(presetPath, 'utf8')
+  const codeOnly = `- id: tool-presentation
+  name: '@deepseek-ai/dsh-agent-tool-presentation'
+  config:
+    mode: code`
+  const resilient = `- id: tool-presentation
+  name: '@deepseek-ai/dsh-agent-tool-presentation'
+  config:
+    mode: both`
+
+  if (original.includes(resilient)) return
+  if (!original.includes(codeOnly)) {
+    throw new Error('The installed Code mode preset changed and could not be patched safely')
+  }
+  await writeFile(presetPath, original.replace(codeOnly, resilient))
+}
+
+await patchCodeModeFallback()
 console.log(`Patched Balto branding in ${dist}`)
