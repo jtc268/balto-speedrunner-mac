@@ -39,8 +39,6 @@ const elements = {
   updateRow: document.querySelector('#update-row'),
   updateDetail: document.querySelector('#update-detail'),
   updateTag: document.querySelector('#update-tag'),
-  workspaceShell: document.querySelector('#workspace-shell'),
-  workspaceFrame: document.querySelector('#workspace-frame'),
 }
 
 let currentStatus = null
@@ -170,14 +168,18 @@ function withoutTrailingPeriod(value) {
   return String(value || '').replace(/[.]+$/, '')
 }
 
-function showEmbeddedWorkspace(fresh = false) {
-  if (workspaceOpened) return
+async function openNativeWorkspace(fresh = false) {
+  if (workspaceOpened || !invoke) return
   workspaceOpened = true
-  const suffix = fresh ? '?balto=new' : ''
-  elements.workspaceFrame.src = `http://127.0.0.1:3080/${suffix}`
-  elements.workspaceShell.hidden = false
-  document.body.classList.add('workspace-mode')
-  document.body.classList.remove('launch-pending')
+  try {
+    await invoke('open_workspace', { fresh })
+  } catch (error) {
+    workspaceOpened = false
+    document.body.classList.remove('launch-pending')
+    elements.phaseMessage.textContent = String(error)
+    elements.status.classList.add('error')
+    elements.status.querySelector('span').textContent = 'Workspace unavailable'
+  }
 }
 
 function formatDuration(totalSeconds) {
@@ -266,7 +268,7 @@ function render(status) {
   if (ready && invoke) {
     const fresh = freshWorkspaceRequested
     freshWorkspaceRequested = false
-    showEmbeddedWorkspace(fresh)
+    void openNativeWorkspace(fresh)
     return
   }
 
@@ -433,7 +435,7 @@ async function installAvailableUpdate() {
 
 elements.primary.addEventListener('click', async () => {
   if (currentStatus?.workspaceReady) {
-    showEmbeddedWorkspace(false)
+    await openNativeWorkspace(false)
     return
   }
   freshWorkspaceRequested = true

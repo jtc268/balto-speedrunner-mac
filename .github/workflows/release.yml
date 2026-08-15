@@ -60,7 +60,7 @@ jobs:
           releaseBody: |
             Signed and Apple-notarized Balto Speedrunner for Apple Silicon.
 
-            Drag Balto Speedrunner into Applications. First launch downloads the private runtime and optimized Qwen 3.8 27B model, then opens the embedded coding workspace automatically.
+            Open the DMG and double-click Balto. It installs into Applications, opens, and ejects the installer disk. First launch downloads the private runtime and optimized Qwen 3.8 27B model, then opens the coding workspace automatically.
           releaseDraft: true
           prerelease: false
           args: --target aarch64-apple-darwin --bundles app,dmg

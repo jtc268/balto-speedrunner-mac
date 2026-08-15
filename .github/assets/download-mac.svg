@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="190" viewBox="0 0 1120 190" role="img" aria-labelledby="title desc">
+  <title id="title">Download Balto for Mac</title>
+  <desc id="desc">Apple Silicon download button</desc>
+  <rect x="8" y="8" width="1104" height="174" rx="38" fill="#111318" stroke="#ff6b35" stroke-width="8"/>
+  <circle cx="104" cy="95" r="54" fill="#ff6b35"/>
+  <path d="M77 77 87 48l17 15 17-15 10 29-9 40c-5 18-31 18-36 0Z" fill="#111318"/>
+  <path d="M85 88h38l-6 27c-3 12-23 12-26 0Z" fill="#ff6b35"/>
+  <circle cx="95" cy="88" r="5" fill="#111318"/>
+  <circle cx="113" cy="88" r="5" fill="#111318"/>
+  <path d="M98 101h12l-6 7Z" fill="#111318"/>
+  <text x="184" y="88" fill="#ffffff" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="48" font-weight="750">Download Balto for Mac</text>
+  <text x="184" y="136" fill="#bdc2ca" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="28" font-weight="520">Apple Silicon  |  macOS 14 or newer</text>
+  <path d="M1000 61v54m-24-22 24 24 24-24M972 137h56" fill="none" stroke="#ff6b35" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

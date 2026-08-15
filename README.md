@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jtc268/balto-speedrunner-mac/releases/download/v0.1.0-beta.1/Balto-Speedrunner-0.1.0-beta.1-arm64.dmg"><img alt="Download Balto Speedrunner for Mac" src="https://img.shields.io/badge/Download_for_Mac-Apple_Silicon-54df9b?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/jtc268/balto-speedrunner-mac/releases/download/v0.1.0-beta.2/Balto-Speedrunner-0.1.0-beta.2-arm64.dmg"><img alt="Download Balto Speedrunner for Mac" src=".github/assets/download-mac.svg" width="560"></a>
 </p>
 
 <p align="center"><strong>macOS 14 or newer | Apple Silicon | 32 GB unified memory minimum</strong></p>
@@ -12,12 +12,12 @@ Balto Speedrunner installs the Qwen 3.8 27B Optimized Speed model, MTPLX 2.7, an
 
 ## Install
 
-1. Click **Download for Mac** above.
-2. Open the DMG and drag Balto Speedrunner to Applications.
-3. Control-click Balto Speedrunner and choose **Open** on the first launch.
-4. Leave the app open while it downloads the model and completes setup.
+1. Click **Download Balto for Mac** above.
+2. Open the DMG.
+3. Double-click Balto. It installs into Applications, opens, and ejects the installer disk.
+4. Leave Balto open while it downloads the model and completes setup.
 
-The beta uses an Apple development signature and is not notarized yet. The production build will open normally after Developer ID notarization.
+The beta is signed with Adore LLC's Apple Developer ID. Apple notarization is still pending, so macOS may require Control-click, then **Open**, on the first launch.
 
 ## What is included
 
@@ -70,7 +70,7 @@ The optimized model weights and MTPLX runtime are downloaded during first launch
 
 ## Signing
 
-Release builds support Apple Developer ID signing, notarization, stapling, and signed in-app updates. The current public beta is development-signed for testing.
+Release builds support Apple Developer ID signing, notarization, stapling, and signed in-app updates. The current public beta is Developer ID signed and awaiting notarization.
 
 ## Credits
 
