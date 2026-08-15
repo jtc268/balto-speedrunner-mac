@@ -1,0 +1,24 @@
+[package]
+name = "balto-speedrunner-mac"
+version = "0.1.0"
+description = "One-click Qwen 3.8 27B coding agent for Apple Silicon"
+authors = ["Adore LLC"]
+license = "LicenseRef-Proprietary"
+repository = "https://github.com/jtc268/balto-speedrunner-mac"
+edition = "2024"
+
+[lib]
+name = "balto_speedrunner_mac_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.5.3", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2.11.5", features = [] }
+tauri-plugin-opener = "2.5.4"
+tauri-plugin-process = "2.3.1"
+tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2.10.1"

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Balto Speedrunner",
+  "version": "0.1.0",
+  "identifier": "com.adore.balto-speedrunner.mac",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "macOSPrivateApi": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Balto Speedrunner",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 960,
+        "minHeight": 660,
+        "center": true,
+        "resizable": true,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 18, "y": 18 },
+        "backgroundColor": "#0d0f12"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:3080 http://127.0.0.1:30100"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "targets": ["dmg", "app"],
+    "publisher": "Adore LLC",
+    "copyright": "Copyright 2026 Adore LLC",
+    "category": "DeveloperTool",
+    "shortDescription": "High-speed local coding agent for Apple Silicon",
+    "longDescription": "Installs and runs an optimized Qwen 3.8 27B coding stack on supported Apple Silicon Macs.",
+    "resources": {
+      "../runtime/": "runtime/"
+    },
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "entitlements": "entitlements.plist",
+      "signingIdentity": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ5MTUzRjU4ODZGNkUyNjEKUldSaDR2YUdXRDhWMlRMTm1Kd0p2QXJtNEc1Q0M4Y3hpSFdZYThyaEpuT2Y2U1pEQkRHaUQrNGcK",
+      "endpoints": [
+        "https://github.com/jtc268/balto-speedrunner-mac/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

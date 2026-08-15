@@ -1,0 +1,20 @@
+{
+  "name": "balto-speedrunner-mac",
+  "private": true,
+  "version": "0.1.0",
+  "description": "One-click Qwen 3.8 27B coding agent for Apple Silicon",
+  "license": "UNLICENSED",
+  "author": "Adore LLC",
+  "type": "module",
+  "scripts": {
+    "prepare:runtime": "bash scripts/prepare-runtime.sh",
+    "dev": "npm run prepare:runtime && tauri dev --target aarch64-apple-darwin",
+    "build": "npm run prepare:runtime && tauri build --target aarch64-apple-darwin",
+    "benchmark:local": "node scripts/benchmark-local.mjs",
+    "check": "node --check src/app.js && node --check runtime/balto.mjs && node --check runtime/install-vision.mjs && node --check runtime/gateway.mjs && node --check runtime/patch-dsh.mjs && node --check runtime/ensure-workspace.mjs && node --check scripts/benchmark-local.mjs && bash -n runtime/balto.sh && bash -n scripts/prepare-runtime.sh",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4"
+  }
+}

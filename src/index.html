@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0d0f12" />
+    <title>Balto Speedrunner</title>
+    <link rel="icon" href="/balto-mark.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+    <header class="topbar" data-tauri-drag-region>
+      <a class="brand" href="#" aria-label="Balto Speedrunner home">
+        <img src="/balto-mark.svg" alt="" />
+        <span>Balto</span>
+        <small>SPEEDRUNNER</small>
+      </a>
+      <div class="topbar-actions">
+        <span class="status-pill" id="top-status"><i></i><span>Checking Mac</span></span>
+        <button class="icon-button update-button" id="update-button" type="button" aria-label="Balto update available" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M6 20h12"/></svg><i></i>
+        </button>
+        <button class="icon-button" id="settings-button" type="button" aria-label="Open settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Zm8 3.6-.1-1.1 2-1.6-2-3.4-2.5 1a8 8 0 0 0-1.9-1.1L15.1 3h-4l-.4 2.8a8 8 0 0 0-1.9 1.1l-2.5-1-2 3.4 2 1.6a8 8 0 0 0 0 2.2l-2 1.6 2 3.4 2.5-1a8 8 0 0 0 1.9 1.1l.4 2.8h4l.4-2.8a8 8 0 0 0 1.9-1.1l2.5 1 2-3.4-2-1.6.1-1.1Z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow"><span></span> Built for Apple Silicon</div>
+        <h1>Qwen 3.8 27B<br /><span>up to 3× faster</span></h1>
+        <p class="hero-copy">Private local coding with vision, terminal access, live web search, and Mac computer control.</p>
+        <div class="hero-actions">
+          <button class="primary-button" id="primary-action" type="button">
+            <span>Start</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 6 6-6 6"/></svg>
+          </button>
+          <button class="text-button" id="view-log" type="button">View setup log</button>
+        </div>
+        <p class="setup-note">No Homebrew, Docker, Terminal setup, account, or subscription required</p>
+      </section>
+
+      <section class="system-panel">
+        <div class="panel-heading">
+          <div>
+            <div class="eyebrow"><span></span> System readiness</div>
+            <h2 id="phase-title">Inspecting your machine</h2>
+          </div>
+          <div class="progress-ring" id="progress-ring" style="--progress: 4"><strong id="progress-value">4%</strong></div>
+        </div>
+        <p class="phase-message" id="phase-message">Balto is checking this Apple Silicon Mac</p>
+
+        <section class="setup-journey" id="setup-journey" aria-live="polite" aria-label="Balto setup progress">
+          <div class="journey-summary">
+            <div>
+              <span class="journey-kicker">Automatic setup</span>
+              <h3 id="journey-title">Balto is getting ready</h3>
+              <p id="journey-detail">Everything happens here. Balto will open your coding workspace when setup is complete</p>
+            </div>
+            <div class="journey-time">
+              <span id="journey-step">Step 1 of 4</span>
+              <strong id="journey-eta">A few minutes</strong>
+            </div>
+          </div>
+
+          <div class="balto-track" id="balto-track" style="--progress: 4">
+            <div class="track-fill"></div>
+            <div class="balto-runner" aria-hidden="true">
+              <div class="runner-sprite">
+                <span class="dog-tail"></span>
+                <span class="dog-body"></span>
+                <span class="dog-leg dog-leg-back"></span>
+                <span class="dog-leg dog-leg-front"></span>
+                <span class="dog-head"><img src="/balto-mark.svg" alt="" /></span>
+                <span class="runner-dust runner-dust-one"></span>
+                <span class="runner-dust runner-dust-two"></span>
+              </div>
+            </div>
+            <span class="track-start">START</span>
+            <span class="track-finish">CODE</span>
+          </div>
+
+          <div class="progress-meta">
+            <span id="download-detail">Preparing the route</span>
+            <span id="elapsed-time">Elapsed 0s</span>
+          </div>
+
+          <ol class="setup-steps">
+            <li id="setup-step-system">
+              <span class="step-marker">1</span>
+              <div><strong>Check your Mac</strong><span>Apple chip, memory, macOS, and storage</span></div>
+            </li>
+            <li id="setup-step-runtime">
+              <span class="step-marker">2</span>
+              <div><strong>Build Balto</strong><span>Private engine, coding tools, and your ~/Balto workspace</span></div>
+            </li>
+            <li id="setup-step-model">
+              <span class="step-marker">3</span>
+              <div><strong>Download Qwen</strong><span>About 17 GB with native vision, resumable and stored locally</span></div>
+            </li>
+            <li id="setup-step-launch">
+              <span class="step-marker">4</span>
+              <div><strong>Start coding</strong><span>Load unified memory and open the workspace</span></div>
+            </li>
+          </ol>
+
+          <div class="journey-note">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
+            <span id="journey-note">Keep Balto open. Downloads resume automatically if your connection is interrupted</span>
+          </div>
+        </section>
+
+        <div class="check-grid">
+          <div class="check-item" id="check-gpu"><i></i><div><strong>Apple Silicon</strong><span>Detecting chip and unified memory</span></div></div>
+          <div class="check-item" id="check-docker"><i></i><div><strong>Balto Turbo</strong><span>Private high-speed MLX runtime</span></div></div>
+          <div class="check-item" id="check-model"><i></i><div><strong>Qwen 3.8 27B</strong><span>4-bit native-MTP speed build</span></div></div>
+          <div class="check-item" id="check-workspace"><i></i><div><strong>Full coding harness</strong><span>Terminal, vision, web, and computer tools</span></div></div>
+        </div>
+
+        <div class="warning-card" id="warning-card" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20L12 3Zm0 6v5m0 3v1"/></svg>
+          <span id="warning-text"></span>
+        </div>
+      </section>
+
+      <section class="remote-card permission-card">
+        <div class="remote-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H5zM9 20h6m-3-5v5M8 9l2 2 5-5"/></svg>
+        </div>
+        <div class="remote-copy">
+          <strong>Optional Mac control</strong>
+          <span>Grant these once if you want Balto to see and operate apps or browsers. Coding, terminal, vision uploads, and web search work without them.</span>
+        </div>
+        <div class="permission-actions">
+          <button class="permission-button" id="accessibility-button" type="button">Accessibility</button>
+          <button class="permission-button" id="screen-button" type="button">Screen Recording</button>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="settings-dialog">
+      <form method="dialog" class="settings-sheet">
+        <div class="settings-head">
+          <div><span>SETTINGS</span><h2>Balto Speedrunner</h2></div>
+          <button class="icon-button" value="cancel" aria-label="Close settings" type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div class="setting-row">
+          <div><strong>Model configuration</strong><span>Qwen 3.8 27B 4-bit, Turbo D3, context sized to this Mac</span></div>
+          <span class="tag">PINNED</span>
+        </div>
+        <button class="setting-row update-row" id="update-row" type="button">
+          <div><strong>Updates</strong><span id="update-detail">Checking signed releases</span></div>
+          <span class="update-action"><span class="tag" id="update-tag">CHECKING</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M6 20h12"/></svg></span>
+        </button>
+        <button class="coffee-button" id="coffee-button" type="button">
+          <span>☕</span><div><strong>Buy me a coffee</strong><small>Support fast local AI for more GPUs</small></div>
+        </button>
+        <p class="legal">Balto Speedrunner © 2026 Adore LLC. Inference uses Apache-2.0 MTPLX and Apple MLX. The coding harness includes MIT-licensed DeepSeek software. Qwen model weights use their own license.</p>
+      </form>
+    </dialog>
+
+    <dialog id="log-dialog">
+      <div class="log-sheet">
+        <div class="settings-head"><div><span>SETUP LOG</span><h2>What Balto is doing</h2></div><button class="icon-button" id="close-log" aria-label="Close log" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+        <pre id="log-output">Waiting for setup to begin.</pre>
+      </div>
+    </dialog>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+agent-default-model:
+  provider: balto
+  model: balto-qwen-3.8-27b
+  reasoningEffort: off
+
+permission:
+  defaultPreset: danger-full-access
+
+llm-pi-ai:
+  providers:
+    balto:
+      displayName: Balto Local
+      api: openai-completions
+      baseURL: http://127.0.0.1:30100/v1
+      headers:
+        Authorization: Bearer local-balto
+      defaultContextWindow: 262144
+      defaultMaxTokens: 32768
+      defaultInput:
+        - text
+        - image
+      models:
+        - id: balto-qwen-3.8-27b
+          name: Qwen 3.8 27B - Balto Turbo
+          contextWindow: 262144
+          maxTokens: 32768
+          input:
+            - text
+            - image
+          reasoningEfforts:
+            off: none
+            high: high
+          compat:
+            thinkingFormat: deepseek
+            supportsReasoningEffort: false
