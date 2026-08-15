@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "local-workspace",
+  "description": "Allows the Balto desktop window to use native IPC only from its local coding workspace.",
+  "windows": ["main"],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:3080/*",
+      "http://localhost:3080/*"
+    ]
+  },
+  "local": false,
+  "permissions": ["core:default"]
+}

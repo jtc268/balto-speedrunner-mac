@@ -100,6 +100,7 @@ test('private remote control uses scoped Tailscale Serve routes and stops with B
 
 test('Mac bundle is native, movable, updateable, and uses one embedded window', async () => {
   const config = JSON.parse(await read('src-tauri/tauri.conf.json'))
+  const localWorkspaceCapability = JSON.parse(await read('src-tauri/capabilities/local-workspace.json'))
   const html = await read('src/index.html')
   const app = await read('src/app.js')
   const styles = await read('src/styles.css')
@@ -114,6 +115,13 @@ test('Mac bundle is native, movable, updateable, and uses one embedded window', 
   assert.ok(config.bundle.macOS.dmg.applicationFolderPosition.x > config.bundle.macOS.dmg.windowSize.width)
   assert.equal(config.bundle.createUpdaterArtifacts, true)
   assert.match(config.plugins.updater.endpoints[0], /jtc268\/balto-speedrunner-mac/)
+  assert.deepEqual(localWorkspaceCapability.remote.urls, [
+    'http://127.0.0.1:3080/*',
+    'http://localhost:3080/*',
+  ])
+  assert.equal(localWorkspaceCapability.local, false)
+  assert.deepEqual(localWorkspaceCapability.permissions, ['core:default'])
+  assert.doesNotMatch(JSON.stringify(localWorkspaceCapability), /ts\.net|https:\/\//)
   assert.equal(config.app.windows[0].decorations, true)
   assert.equal(config.app.windows[0].resizable, true)
   assert.match(html, /data-tauri-drag-region/)
