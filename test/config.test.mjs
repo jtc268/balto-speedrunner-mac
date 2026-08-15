@@ -72,8 +72,11 @@ test('Mac bundle is native, movable, updateable, and uses one embedded window', 
   const html = await read('src/index.html')
   const app = await read('src/app.js')
   const styles = await read('src/styles.css')
+  const brand = await read('src/balto-mark.svg')
+  const runtimeBrand = await read('runtime/assets/balto-mark.svg')
   const nativeShell = await read('src-tauri/src/lib.rs')
   assert.deepEqual(config.bundle.targets, ['dmg', 'app'])
+  assert.ok(config.bundle.icon.includes('icons/icon.icns'))
   assert.equal(config.bundle.macOS.minimumSystemVersion, '14.0')
   assert.equal(config.bundle.createUpdaterArtifacts, true)
   assert.match(config.plugins.updater.endpoints[0], /jtc268\/balto-speedrunner-mac/)
@@ -90,6 +93,14 @@ test('Mac bundle is native, movable, updateable, and uses one embedded window', 
   assert.match(html, /<iframe id="workspace-frame"/)
   assert.match(styles, /body\.launch-pending > \* \{ visibility: hidden; \}/)
   assert.match(styles, /grid-template-rows: 40px minmax\(0, 1fr\)/)
+  assert.match(html, /class="runner-mark"/)
+  assert.doesNotMatch(html, /dog-body|dog-tail|dog-leg|runner-dust/)
+  assert.match(styles, /@keyframes balto-cruise/)
+  assert.doesNotMatch(styles, /@keyframes balto-gallop|\.dog-body|\.dog-leg|\.runner-dust/)
+  for (const mark of [brand, runtimeBrand]) {
+    assert.match(mark, /#ff6b35/)
+    assert.doesNotMatch(mark, /linearGradient|#ff4f8b|#9b5cff|#20c7ff|#27e7a1/)
+  }
   assert.match(config.app.security.csp, /frame-src http:\/\/127\.0\.0\.1:3080/)
 })
 
