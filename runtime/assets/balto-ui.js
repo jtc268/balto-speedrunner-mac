@@ -3,6 +3,7 @@
   const speedEndpoint = LOCAL_HOSTS.has(location.hostname)
     ? 'http://127.0.0.1:30100/speed'
     : `https://${location.hostname}:30100/speed`
+  const invoke = window.__TAURI__?.core?.invoke
 
   document.title = 'Balto Speedrunner'
 
@@ -289,8 +290,33 @@
     #balto-live-bar .balto-value { color: var(--balto-speed); font: 650 26px/1 "Cascadia Code", Consolas, monospace; letter-spacing: -1.6px; font-variant-numeric: tabular-nums; text-shadow: 0 0 18px color-mix(in srgb, var(--balto-speed) 18%, transparent); }
     #balto-live-bar .balto-unit { color: rgba(245,247,248,.58); font-size: 8px; font-weight: 800; letter-spacing: 1px; }
     #balto-live-bar[data-state="idle"] .balto-value { color: #707780; text-shadow: none; }
+    #balto-update-button {
+      display: none;
+      width: 32px;
+      height: 32px;
+      flex: 0 0 32px;
+      place-items: center;
+      margin: 0 1px 0 -1px;
+      padding: 0;
+      border: 0;
+      border-radius: 10px;
+      background: #ff6b35;
+      box-shadow: 0 5px 16px rgba(255,107,53,.32);
+      color: #101216;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: transform .14s ease, background .14s ease, box-shadow .14s ease;
+    }
+    #balto-update-button[data-available="true"] { display: grid; }
+    #balto-update-button:hover { transform: translateY(-1px); background: #ff7b48; box-shadow: 0 7px 19px rgba(255,107,53,.4); }
+    #balto-update-button:active { transform: translateY(0) scale(.96); }
+    #balto-update-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    #balto-update-button:disabled { cursor: wait; opacity: .86; }
+    #balto-update-button svg { width: 18px; height: 18px; overflow: visible; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    #balto-update-button[data-installing="true"] svg { animation: balto-update-pulse .8s ease-in-out infinite alternate; }
     @keyframes balto-sprint { 0%, 100% { transform: translateY(1px) rotate(-1deg); } 50% { transform: translateY(-2px) rotate(1deg); } }
     @keyframes balto-trail { 0%, 100% { transform: scaleX(.45); opacity: .16; } 50% { transform: scaleX(1); opacity: .72; } }
+    @keyframes balto-update-pulse { from { transform: translateY(-1px); opacity: .55; } to { transform: translateY(2px); opacity: 1; } }
     [data-balto-brand="true"] { width: auto !important; display: inline-flex !important; align-items: center !important; gap: 9px !important; color: #f5f7f8 !important; }
     [data-balto-brand="true"] > img { width: 27px !important; height: 27px !important; flex: 0 0 27px; }
     .balto-sidebar-wordmark { display: flex; align-items: baseline; gap: 7px; white-space: nowrap; font-family: Inter, "Segoe UI", sans-serif; }
@@ -368,6 +394,7 @@
       #balto-live-bar .balto-meter { min-width: 64px; gap: 4px; }
       #balto-live-bar .balto-value { font-size: 20px; letter-spacing: -1px; }
       #balto-live-bar .balto-unit { font-size: 7px; letter-spacing: .5px; }
+      #balto-update-button { width: 30px; height: 30px; flex-basis: 30px; border-radius: 9px; }
       .wSkVaW_root { --dsh-chat-content-width: 100%; --dsh-composer-card-max-width: 100%; --dsh-composer-side-clearance: 8px; }
       .wSkVaW_header { position: relative; min-height: 88px !important; padding: 0 !important; }
       .wSkVaW_titleRow { display: none !important; }
@@ -410,7 +437,8 @@
     @media (prefers-reduced-motion: reduce) {
       #balto-live-bar .balto-sprinter img,
       #balto-live-bar .balto-sprinter::before,
-      #balto-live-bar .balto-sprinter::after { animation: none !important; }
+      #balto-live-bar .balto-sprinter::after,
+      #balto-update-button[data-installing="true"] svg { animation: none !important; }
     }
   `
   document.head.append(style)
@@ -419,10 +447,70 @@
   bar.id = 'balto-live-bar'
   bar.dataset.state = 'idle'
   bar.innerHTML = `
+    <button id="balto-update-button" type="button" aria-label="Install Balto update">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M6 20h12"/></svg>
+    </button>
     <div class="balto-sprinter" aria-hidden="true"><img src="/assets/balto-mark.svg" alt=""></div>
     <div class="balto-meter"><span class="balto-value">0</span><span class="balto-unit">TOK/S</span></div>
   `
   document.body.append(bar)
+
+  const updateButton = bar.querySelector('#balto-update-button')
+  let availableUpdate = null
+  let updateCheck = null
+  let updateInstalling = false
+
+  async function checkForWorkspaceUpdate() {
+    if (!invoke || updateInstalling) return
+    if (updateCheck) return updateCheck
+    updateCheck = invoke('check_for_updates')
+      .then((status) => {
+        availableUpdate = status?.availableVersion || null
+        updateButton.dataset.available = String(Boolean(availableUpdate))
+        updateButton.title = availableUpdate
+          ? `Install Balto Speedrunner ${availableUpdate}`
+          : `Balto Speedrunner ${status?.currentVersion || ''} is current`
+        updateButton.setAttribute(
+          'aria-label',
+          availableUpdate ? `Install Balto Speedrunner ${availableUpdate}` : 'Balto Speedrunner is current',
+        )
+      })
+      .catch(() => {})
+      .finally(() => { updateCheck = null })
+    return updateCheck
+  }
+
+  async function installWorkspaceUpdate() {
+    if (!invoke || updateInstalling) return
+    if (!availableUpdate) {
+      await checkForWorkspaceUpdate()
+      if (!availableUpdate) return
+    }
+    updateInstalling = true
+    updateButton.disabled = true
+    updateButton.dataset.installing = 'true'
+    updateButton.title = `Installing Balto Speedrunner ${availableUpdate}`
+    updateButton.setAttribute('aria-label', `Installing Balto Speedrunner ${availableUpdate}`)
+    try {
+      await invoke('install_update')
+    } catch (error) {
+      updateInstalling = false
+      updateButton.disabled = false
+      updateButton.dataset.installing = 'false'
+      updateButton.title = `Update failed. Click to retry. ${String(error)}`
+      updateButton.setAttribute('aria-label', 'Balto update failed. Click to retry')
+    }
+  }
+
+  updateButton.addEventListener('click', installWorkspaceUpdate)
+  if (invoke) {
+    setTimeout(checkForWorkspaceUpdate, 1800)
+    setInterval(checkForWorkspaceUpdate, 5 * 60 * 1000)
+    window.addEventListener('focus', checkForWorkspaceUpdate)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void checkForWorkspaceUpdate()
+    })
+  }
 
   function positionSpeedBar() {
     const exportButton = [...document.querySelectorAll('button')].find((candidate) =>
