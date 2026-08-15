@@ -1,7 +1,7 @@
 {
   "name": "balto-speedrunner-mac",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "One-click Qwen 3.8 27B coding agent for Apple Silicon",
   "license": "UNLICENSED",
   "author": "Adore LLC",

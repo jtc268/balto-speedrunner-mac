@@ -81,7 +81,14 @@
   function simplifyEffortControls() {
     for (const trigger of document.querySelectorAll('button[aria-label^="Select model"]')) {
       const root = trigger.parentElement
-      if (root) root.style.display = 'none'
+      if (!root) continue
+      trigger.style.display = 'none'
+      if (root.querySelector(':scope > .balto-static-model')) continue
+      const staticModelLabel = document.createElement('span')
+      staticModelLabel.className = 'balto-static-model'
+      staticModelLabel.textContent = 'Qwen 3.8 27B'
+      staticModelLabel.title = 'Qwen 3.8 27B Optimized Speed'
+      root.append(staticModelLabel)
     }
 
     for (const effort of document.querySelectorAll('[class*="triggerEffort"]')) {
@@ -232,9 +239,20 @@
 
   const style = document.createElement('style')
   style.textContent = `
-    button[aria-label^="Select model"],
-    div:has(> button[aria-label^="Select model"]) {
+    button[aria-label^="Select model"] {
       display: none !important;
+    }
+    .balto-static-model {
+      display: inline-flex !important;
+      align-items: center;
+      min-width: 0;
+      padding: 0 4px;
+      white-space: nowrap;
+      color: inherit;
+      font: inherit;
+      font-weight: 550;
+      opacity: .78;
+      user-select: none;
     }
     #balto-live-bar {
       --balto-speed: #54df9b;

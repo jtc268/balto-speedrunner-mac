@@ -132,7 +132,10 @@ test('harness declares vision, terminal, web, and computer tools', async () => {
   assert.match(patch, /for \(const message of orderedMessages\)/)
   assert.match(ui, /triggerEffort/)
   assert.match(ui, /button\[aria-label\^="Select model"\]/)
-  assert.match(ui, /root\.style\.display = 'none'/)
+  assert.match(ui, /trigger\.style\.display = 'none'/)
+  assert.match(ui, /staticModelLabel\.textContent = 'Qwen 3\.8 27B'/)
+  assert.match(ui, /\.balto-static-model/)
+  assert.doesNotMatch(ui, /root\.style\.display = 'none'/)
   assert.match(ui, /effort\.style\.display = 'none'/)
   assert.match(ui, /if \(row\) row\.style\.display = 'none'/)
   for (const name of ['web_search', 'web_fetch', 'computer_screenshot', 'computer_click', 'computer_type', 'computer_hotkey', 'browser_open']) {
