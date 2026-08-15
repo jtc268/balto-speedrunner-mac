@@ -1,0 +1,13 @@
+# Test-only overlay. It lowers the threshold so a live release smoke test can
+# prove compaction without generating more than 100,000 tokens.
+- id: compaction-basic
+  disabled: false
+  config:
+    modelPolicies:
+      - provider: balto
+        model: balto-qwen-3.8-27b
+        thresholdRatio: 0.015
+        retainTokens: 1000
+        maxTokens: 4096
+        compactionRetries: 2
+        maxOverflowRetries: 3

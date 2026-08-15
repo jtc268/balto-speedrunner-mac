@@ -72,8 +72,11 @@ test('Mac bundle is native, movable, updateable, and uses one embedded window', 
   const html = await read('src/index.html')
   const app = await read('src/app.js')
   const styles = await read('src/styles.css')
+  const brand = await read('src/balto-mark.svg')
+  const runtimeBrand = await read('runtime/assets/balto-mark.svg')
   const nativeShell = await read('src-tauri/src/lib.rs')
   assert.deepEqual(config.bundle.targets, ['dmg', 'app'])
+  assert.ok(config.bundle.icon.includes('icons/icon.icns'))
   assert.equal(config.bundle.macOS.minimumSystemVersion, '14.0')
   assert.equal(config.bundle.createUpdaterArtifacts, true)
   assert.match(config.plugins.updater.endpoints[0], /jtc268\/balto-speedrunner-mac/)
@@ -90,6 +93,14 @@ test('Mac bundle is native, movable, updateable, and uses one embedded window', 
   assert.match(html, /<iframe id="workspace-frame"/)
   assert.match(styles, /body\.launch-pending > \* \{ visibility: hidden; \}/)
   assert.match(styles, /grid-template-rows: 40px minmax\(0, 1fr\)/)
+  assert.match(html, /class="runner-mark"/)
+  assert.doesNotMatch(html, /dog-body|dog-tail|dog-leg|runner-dust/)
+  assert.match(styles, /@keyframes balto-cruise/)
+  assert.doesNotMatch(styles, /@keyframes balto-gallop|\.dog-body|\.dog-leg|\.runner-dust/)
+  for (const mark of [brand, runtimeBrand]) {
+    assert.match(mark, /#ff6b35/)
+    assert.doesNotMatch(mark, /linearGradient|#ff4f8b|#9b5cff|#20c7ff|#27e7a1/)
+  }
   assert.match(config.app.security.csp, /frame-src http:\/\/127\.0\.0\.1:3080/)
 })
 
@@ -134,6 +145,19 @@ test('long jobs compact, retry transient streams, and continue automatically', a
   assert.match(migration, /currentModels/)
 })
 
+test('release claims use the installed app benchmark', async () => {
+  const readme = await read('README.md')
+  const hero = await read('.github/assets/readme-hero.svg')
+  const packageJson = JSON.parse(await read('package.json'))
+  assert.match(readme, /Up to 2x Qwen 3\.8 27B/)
+  assert.doesNotMatch(`${readme}\n${hero}`, /triple|3\.03×|84\.7/i)
+  assert.match(hero, /1\.99×/)
+  assert.match(hero, /55\.5/)
+  assert.match(hero, /fill="#FF6B35"/)
+  assert.equal(packageJson.scripts['audit:long-run'], 'node scripts/audit-long-run.mjs')
+  assert.equal(packageJson.scripts['smoke:forced-compaction'], 'node scripts/smoke-forced-compaction.mjs')
+})
+
 test('readiness polling never generates model work', async () => {
   const runtime = await read('runtime/balto.mjs')
   assert.match(runtime, /enginePort}\/v1\/models/)
@@ -145,7 +169,7 @@ test('product UI is Mac-first and subscription-free', async () => {
   const app = await read('src/app.js')
   const config = JSON.parse(await read('src-tauri/tauri.conf.json'))
   assert.match(html, /Built for Apple Silicon/)
-  assert.match(html, /up to 3× faster/)
+  assert.match(html, /up to 2× faster/)
   assert.match(html, /No Homebrew, Docker, Terminal setup, account, or subscription required/)
   assert.match(html, /About 21 GB/)
   assert.match(html, /Powered by MTPLX: github\.com\/youssofal\/MTPLX/)
