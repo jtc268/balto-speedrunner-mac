@@ -27,16 +27,39 @@ const npmCli = join(resources, 'node', 'lib', 'node_modules', 'npm', 'bin', 'npm
 const uvBin = join(resources, 'uv', 'uv')
 const mtplxBin = join(venvRoot, 'bin', 'mtplx')
 const dshEntry = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
-const modelRepo = 'hashtofu/Qwen3.8-27B-MTPLX-4bit'
-const modelFolder = 'hashtofu--Qwen3.8-27B-MTPLX-4bit'
-const ownModelPath = join(modelRoot, modelFolder)
-const legacyModelPath = join(homedir(), '.mtplx', 'models', modelFolder)
-const servedModel = 'balto-qwen-3.8-27b'
+const engineVersion = '2.7.0'
+const modelVariants = {
+  modern: {
+    repo: 'Youssofal/Qwen3.8-27B-MTPLX-Optimized-Speed',
+    folder: 'Youssofal--Qwen3.8-27B-MTPLX-Optimized-Speed',
+    sizeBytes: 20_392_433_868,
+  },
+  legacy: {
+    repo: 'Youssofal/Qwen3.8-27B-MTPLX-Optimized-Speed-FP16',
+    folder: 'Youssofal--Qwen3.8-27B-MTPLX-Optimized-Speed-FP16',
+    sizeBytes: 20_392_914_234,
+  },
+}
+const publicModel = 'balto-qwen-3.8-27b'
 const enginePort = 30000
 const gatewayPort = 30100
 const workspacePort = 3080
 const visionDownloadBytes = 921_460_192
-const downloadTotalBytes = 16_924_103_741
+
+function modelSpec(info = hardware()) {
+  return /Apple M[12]\b/i.test(info.chip) ? modelVariants.legacy : modelVariants.modern
+}
+
+function modelPaths(spec) {
+  return {
+    own: join(modelRoot, spec.folder),
+    legacy: join(homedir(), '.mtplx', 'models', spec.folder),
+  }
+}
+
+function totalDownloadBytes(spec) {
+  return spec.sizeBytes + visionDownloadBytes
+}
 
 await Promise.all([
   mkdir(dataRoot, { recursive: true }),
@@ -61,7 +84,7 @@ function defaultState() {
     progress: 0,
     startedAt: null,
     downloadedGb: null,
-    downloadTotalGb: Number((downloadTotalBytes / 1e9).toFixed(1)),
+    downloadTotalGb: Number((totalDownloadBytes(modelVariants.modern) / 1e9).toFixed(1)),
     downloadRateMbps: null,
     etaSeconds: null,
     gpuName: null,
@@ -123,15 +146,17 @@ function hardware() {
 
 async function assertCompatible() {
   const info = hardware()
+  const spec = modelSpec(info)
   await updateState({
     gpuName: info.chip,
     gpuMemoryMib: info.memoryMib,
     contextWindow: info.contextWindow,
+    downloadTotalGb: Number((totalDownloadBytes(spec) / 1e9).toFixed(1)),
   })
   if (info.arch !== 'arm64') throw new Error('Balto requires an Apple Silicon Mac.')
   if (!Number.isFinite(info.osMajor) || info.osMajor < 14) throw new Error('Balto requires macOS 14 Sonoma or newer.')
   if (info.memoryGib < 31) throw new Error('Qwen 3.8 27B requires at least 32 GB of unified memory. 48 GB or more is recommended.')
-  if (info.freeBytes < 28 * 1024 ** 3 && !validModelPath()) throw new Error('Balto needs at least 28 GB of free storage for its runtime and model.')
+  if (info.freeBytes < 32 * 1024 ** 3 && !validModelPath(spec)) throw new Error('Balto needs at least 32 GB of free storage for its runtime and model.')
   return info
 }
 
@@ -139,9 +164,10 @@ function validModelAt(path) {
   return existsSync(join(path, 'mtplx_runtime.json')) && existsSync(join(path, 'config.json'))
 }
 
-function validModelPath() {
-  if (validModelAt(ownModelPath)) return ownModelPath
-  if (validModelAt(legacyModelPath)) return legacyModelPath
+function validModelPath(spec) {
+  const paths = modelPaths(spec)
+  if (validModelAt(paths.own)) return paths.own
+  if (validModelAt(paths.legacy)) return paths.legacy
   return null
 }
 
@@ -169,7 +195,7 @@ async function refreshStatus({ preservePhase = false } = {}) {
   const current = await readState()
   let info
   try { info = hardware() } catch {}
-  const inferenceReady = Boolean(childAlive('engine')) && await endpointReady(`http://127.0.0.1:${enginePort}/health`)
+  const inferenceReady = Boolean(childAlive('engine')) && await endpointReady(`http://127.0.0.1:${enginePort}/v1/models`)
   const gatewayReady = Boolean(childAlive('gateway')) && await endpointReady(`http://127.0.0.1:${gatewayPort}/health`)
   const workspaceReady = gatewayReady && Boolean(childAlive('workspace')) && await endpointReady(`http://127.0.0.1:${workspacePort}/`)
   const runtimeInstalled = existsSync(mtplxBin) && existsSync(dshEntry)
@@ -203,14 +229,22 @@ async function run(command, args, { cwd, env, prefix = 'command' } = {}) {
 }
 
 async function ensureEngineRuntime() {
-  if (existsSync(mtplxBin)) return
-  await updateState({ phase: 'downloading-runtime', stage: 'engine', progress: 18, message: 'Installing Balto\'s private Apple Silicon engine.' })
+  let installedVersion = null
+  if (existsSync(mtplxBin)) {
+    try {
+      installedVersion = commandOutput(join(venvRoot, 'bin', 'python'), ['-c', 'import importlib.metadata as m; print(m.version("mtplx"))'])
+    } catch {}
+  }
+  if (installedVersion === engineVersion) return
+  await updateState({ phase: 'downloading-runtime', stage: 'engine', progress: 18, message: `Installing MTPLX ${engineVersion} with the Qwen 3.8 speed optimizations.` })
   const env = {
     UV_CACHE_DIR: join(cacheRoot, 'uv'),
     UV_PYTHON_INSTALL_DIR: join(runtimeRoot, 'python'),
   }
-  await run(uvBin, ['venv', '--python', '3.12', '--python-preference', 'only-managed', venvRoot], { env, prefix: 'python' })
-  await run(uvBin, ['pip', 'install', '--python', join(venvRoot, 'bin', 'python'), 'mtplx==2.6.0'], { env, prefix: 'engine install' })
+  if (!existsSync(join(venvRoot, 'bin', 'python'))) {
+    await run(uvBin, ['venv', '--python', '3.12', '--python-preference', 'only-managed', venvRoot], { env, prefix: 'python' })
+  }
+  await run(uvBin, ['pip', 'install', '--upgrade', '--python', join(venvRoot, 'bin', 'python'), `mtplx==${engineVersion}`], { env, prefix: 'engine install' })
   if (!existsSync(mtplxBin)) throw new Error('The Balto inference engine did not install correctly.')
 }
 
@@ -229,10 +263,13 @@ async function ensureWorkspaceRuntime(info) {
   if (!existsSync(dshEntry)) throw new Error('The Balto coding workspace did not install correctly.')
   await run(nodeBin, [join(resources, 'patch-dsh.mjs'), dshRoot, resources], { prefix: 'workspace brand' })
   const settingsPath = join(dshHome, 'settings.yaml')
-  if (!existsSync(settingsPath)) {
-    const template = await readFile(join(resources, 'templates', 'settings.yaml'), 'utf8')
-    await writeFile(settingsPath, template.replaceAll('262144', String(info.contextWindow)), { mode: 0o600 })
-  }
+  await run(nodeBin, [
+    join(resources, 'configure-settings.mjs'),
+    settingsPath,
+    join(resources, 'templates', 'settings.yaml'),
+    join(dshRoot, 'node_modules', 'js-yaml', 'dist', 'js-yaml.mjs'),
+    String(info.contextWindow),
+  ], { prefix: 'workspace settings' })
   const webProfileRoot = join(dshHome, 'profiles', 'web')
   await mkdir(webProfileRoot, { recursive: true })
   const webProfileFiles = {
@@ -253,15 +290,18 @@ async function ensureWorkspaceRuntime(info) {
   await run(nodeBin, [join(resources, 'ensure-workspace.mjs'), join(dshHome, 'storages', 'workspace.json'), workspaceRoot], { prefix: 'workspace registry' })
 }
 
-async function pullModel() {
-  const existing = validModelPath()
+async function pullModel(info) {
+  const spec = modelSpec(info)
+  const paths = modelPaths(spec)
+  const totalBytes = totalDownloadBytes(spec)
+  const existing = validModelPath(spec)
   if (existing) {
-    log(`Reusing the verified Qwen 3.8 model at ${existing}`)
-    await updateState({ downloadedGb: Number(((downloadTotalBytes - visionDownloadBytes) / 1e9).toFixed(1)), progress: 82, message: 'The optimized Qwen 3.8 27B language model is ready.' })
-    return ensureVisionModel(existing)
+    log(`Reusing the verified Qwen 3.8 Optimized Speed model at ${existing}`)
+    await updateState({ downloadedGb: Number((spec.sizeBytes / 1e9).toFixed(1)), downloadTotalGb: Number((totalBytes / 1e9).toFixed(1)), progress: 82, message: 'Qwen 3.8 27B Optimized Speed is ready.' })
+    return ensureVisionModel(existing, spec)
   }
-  await updateState({ phase: 'downloading-model', stage: 'model', progress: 42, message: 'Downloading the optimized Qwen 3.8 27B model. Downloads resume automatically.' })
-  const child = spawn(mtplxBin, ['pull', modelRepo, '--cache-dir', modelRoot, '--progress-json'], {
+  await updateState({ phase: 'downloading-model', stage: 'model', progress: 42, downloadTotalGb: Number((totalBytes / 1e9).toFixed(1)), message: 'Downloading Qwen 3.8 27B Optimized Speed. Downloads resume automatically.' })
+  const child = spawn(mtplxBin, ['pull', spec.repo, '--cache-dir', modelRoot, '--progress-json'], {
     env: engineEnvironment(),
     stdio: ['ignore', 'pipe', 'pipe'],
   })
@@ -277,7 +317,7 @@ async function pullModel() {
       try {
         const event = JSON.parse(line)
         const bytes = Number(event.size_bytes ?? event.downloaded_bytes ?? event.completed_bytes ?? 0)
-        const total = Number(event.total_bytes || downloadTotalBytes)
+        const total = Number(event.total_bytes || spec.sizeBytes)
         if (bytes <= 0) continue
         const now = Date.now()
         const seconds = Math.max((now - lastTime) / 1000, 0.001)
@@ -307,11 +347,12 @@ async function pullModel() {
   })
   await progressUpdates
   if (pending.trim()) await consume(Buffer.from('\n'))
-  if (exitCode !== 0 || !validModelAt(ownModelPath)) throw new Error(`The Qwen model download stopped with code ${exitCode}. Balto preserved completed files for retry.`)
-  return ensureVisionModel(ownModelPath)
+  if (exitCode !== 0 || !validModelAt(paths.own)) throw new Error(`The Qwen model download stopped with code ${exitCode}. Balto preserved completed files for retry.`)
+  return ensureVisionModel(paths.own, spec)
 }
 
-async function ensureOwnModel(basePath) {
+async function ensureOwnModel(basePath, spec) {
+  const ownModelPath = modelPaths(spec).own
   if (resolve(basePath) === resolve(ownModelPath)) return ownModelPath
   await updateState({ phase: 'installing', stage: 'vision', progress: 82, message: 'Preparing Balto\'s private Qwen 3.8 model copy.' })
   await mkdir(ownModelPath, { recursive: true })
@@ -322,8 +363,8 @@ async function ensureOwnModel(basePath) {
   return ownModelPath
 }
 
-async function ensureVisionModel(basePath) {
-  const modelPath = await ensureOwnModel(basePath)
+async function ensureVisionModel(basePath, spec) {
+  const modelPath = await ensureOwnModel(basePath, spec)
   await updateState({ phase: 'downloading-model', stage: 'vision', progress: 83, message: 'Adding Qwen 3.8\'s native vision tower. This download also resumes automatically.' })
   const child = spawn(nodeBin, [join(resources, 'install-vision.mjs'), modelPath], {
     env: engineEnvironment(),
@@ -346,7 +387,7 @@ async function ensureVisionModel(basePath) {
           phase: 'downloading-model',
           stage: 'vision',
           progress: Math.max(83, Math.min(89, 83 + Math.round(percent * 0.06))),
-          downloadedGb: Number(((downloadTotalBytes - visionDownloadBytes + bytes) / 1e9).toFixed(2)),
+          downloadedGb: Number(((spec.sizeBytes + bytes) / 1e9).toFixed(2)),
           message: percent >= 100 ? 'Qwen 3.8 text and vision are ready.' : 'Adding Qwen 3.8 vision. Completed tensors are saved and interrupted downloads resume.',
         })
       } catch {}
@@ -425,20 +466,20 @@ async function waitFor(url, attempts, message) {
 }
 
 async function startEngine(modelPath, info) {
-  if (await endpointReady(`http://127.0.0.1:${enginePort}/health`)) return
+  if (await endpointReady(`http://127.0.0.1:${enginePort}/v1/models`)) return
   await updateState({ phase: 'starting', stage: 'launch', progress: 90, message: 'Loading Qwen 3.8 27B into unified memory.' })
+  const spec = modelSpec(info)
   await startDetached('engine', mtplxBin, [
-    'serve', '--model', modelPath, '--model-id', servedModel,
+    'serve', '--model', modelPath, '--model-id', publicModel,
     '--host', '127.0.0.1', '--port', String(enginePort), '--no-auth',
     '--profile', 'turbo', '--generation-mode', 'mtp', '--depth', '3',
-    '--draft-temperature', '0.70', '--draft-top-p', '0.95', '--draft-top-k', '20',
     '--batching-preset', 'agent', '--ssd-session-cache', 'on',
     '--ssd-session-cache-dir', join(cacheRoot, 'sessions'),
-    '--reasoning', 'off', '--preserve-thinking', 'scoped', '--tool-prompt-mode', 'native',
+    '--reasoning', 'on', '--reasoning-effort', 'medium', '--preserve-thinking', 'on', '--tool-prompt-mode', 'native',
     '--fan-mode', 'default', '--context-window', String(info.contextWindow), '--max-tokens', '32768',
     '--app-launch-id', `balto-${process.ppid}`,
   ], { env: engineEnvironment() })
-  await waitFor(`http://127.0.0.1:${enginePort}/health`, 300, 'Qwen did not finish loading. Balto preserved the model and will resume on the next launch.')
+  await waitFor(`http://127.0.0.1:${enginePort}/v1/models`, 300, 'Qwen did not finish loading. Balto preserved the model and will resume on the next launch.')
 }
 
 async function writeProfilePatch() {
@@ -446,7 +487,7 @@ async function writeProfilePatch() {
   const publicWebScript = join(dshRoot, 'balto-tools-mcp.mjs')
   await copyFile(join(resources, 'balto-tools-mcp.mjs'), publicWebScript)
   const quote = (value) => `'${String(value).replaceAll("'", "''")}'`
-  const body = `# Balto owns this generated deployment layer.\n- id: llm-deepseek\n  disabled: true\n- id: web-search-deepseek\n  disabled: true\n- id: tool-web\n  disabled: true\n- insert:\n    - id: mcp-balto-tools\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: balto\n        transport: stdio\n        command: ${quote(nodeBin)}\n        args: [${quote(publicWebScript)}]\n        env:\n          BALTO_WORKSPACE: ${quote(workspaceRoot)}\n        failOnStartupError: true\n        toolCallTimeoutMs: 60000\n`
+  const body = `# Balto owns this generated deployment layer.\n- id: llm-deepseek\n  disabled: true\n- id: web-search-deepseek\n  disabled: true\n- id: tool-web\n  disabled: true\n- id: session-log-download\n  disabled: true\n- id: compaction-basic\n  disabled: false\n  config:\n    modelPolicies:\n      - provider: balto\n        model: balto-qwen-3.8-27b\n        thresholdRatio: 0.45\n        retainTokens: 12000\n        maxTokens: 4096\n        compactionRetries: 2\n        maxOverflowRetries: 3\n- id: command-compact\n  disabled: false\n- id: tool-result-pruner\n  disabled: false\n  config:\n    thresholdChars: 8192\n    headChars: 4096\n    tailChars: 1024\n- id: tool-goal\n  disabled: false\n  config:\n    blockedAfterConsecutiveRounds: 3\n- insert:\n    - id: mcp-balto-tools\n      name: '@deepseek-ai/dsh-mcp-client'\n      config:\n        serverName: balto\n        transport: stdio\n        command: ${quote(nodeBin)}\n        args: [${quote(publicWebScript)}]\n        env:\n          BALTO_WORKSPACE: ${quote(workspaceRoot)}\n        failOnStartupError: true\n        toolCallTimeoutMs: 60000\n`
   await writeFile(generated, body, { mode: 0o600 })
   return generated
 }
@@ -471,7 +512,7 @@ async function installAndStart() {
   const info = await assertCompatible()
   await ensureEngineRuntime()
   await ensureWorkspaceRuntime(info)
-  const modelPath = await pullModel()
+  const modelPath = await pullModel(info)
   await startEngine(modelPath, info)
   await startLocalServices()
   await updateState({ phase: 'ready', stage: 'ready', progress: 100, message: 'Qwen 3.8 27B and the Balto coding workspace are ready.', inferenceReady: true, workspaceReady: true, etaSeconds: 0, warning: null })
@@ -499,7 +540,7 @@ async function main() {
       const info = await assertCompatible()
       await ensureEngineRuntime()
       await ensureWorkspaceRuntime(info)
-      const modelPath = await pullModel()
+      const modelPath = await pullModel(info)
       await startEngine(modelPath, info)
       await startLocalServices()
       await refreshStatus()

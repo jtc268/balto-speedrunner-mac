@@ -132,17 +132,19 @@ fn stop_everything(app: &AppHandle) {
 }
 
 fn run_service_watchdog(app: AppHandle) {
-    thread::spawn(move || loop {
-        if SHUTTING_DOWN.load(Ordering::SeqCst) {
-            break;
+    thread::spawn(move || {
+        loop {
+            if SHUTTING_DOWN.load(Ordering::SeqCst) {
+                break;
+            }
+            let should_check = read_status(&app)
+                .map(|status| matches!(status.phase.as_str(), "ready" | "degraded"))
+                .unwrap_or(false);
+            if should_check {
+                let _ = run_action_sync(&app, "status");
+            }
+            thread::sleep(Duration::from_secs(5));
         }
-        let should_check = read_status(&app)
-            .map(|status| matches!(status.phase.as_str(), "ready" | "degraded"))
-            .unwrap_or(false);
-        if should_check {
-            let _ = run_action_sync(&app, "status");
-        }
-        thread::sleep(Duration::from_secs(5));
     });
 }
 
@@ -236,10 +238,14 @@ fn open_workspace(app: AppHandle, fresh: Option<bool>) -> Result<(), String> {
     if !read_status(&app)?.workspace_ready {
         return Err("Balto is still starting.".into());
     }
+    navigate_to_workspace(&app, fresh.unwrap_or(false))
+}
+
+fn navigate_to_workspace(app: &AppHandle, fresh: bool) -> Result<(), String> {
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "Balto window is unavailable.".to_string())?;
-    let workspace_url = if fresh.unwrap_or(false) {
+    let workspace_url = if fresh {
         "http://127.0.0.1:3080/?balto=new"
     } else {
         "http://127.0.0.1:3080/"

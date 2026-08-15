@@ -23,7 +23,7 @@ async function waitFor(url) {
   throw new Error(`Timed out waiting for ${url}`)
 }
 
-test('gateway applies safe sampling and reports exact streaming speed', async (context) => {
+test('gateway preserves MTPLX-owned sampling and reports exact streaming speed', async (context) => {
   const gatewaySource = await readFile(new URL('../runtime/gateway.mjs', import.meta.url), 'utf8')
   assert.match(gatewaySource, /'connection'/)
   assert.match(gatewaySource, /'transfer-encoding'/)
@@ -31,10 +31,12 @@ test('gateway applies safe sampling and reports exact streaming speed', async (c
   assert.match(gatewaySource, /completionTokens < 4/)
   assert.match(gatewaySource, /x-mtplx-client.*mtplx_app/)
   assert.match(gatewaySource, /Create a concise title for an AI coding-assistant session/)
+  assert.match(gatewaySource, /new URL\('\/v1\/models', upstream\)/)
+  assert.doesNotMatch(gatewaySource, /new URL\('\/health', upstream\)/)
   let received
   const upstream = http.createServer(async (request, response) => {
-    if (request.url === '/health') {
-      response.writeHead(200).end('ok')
+    if (request.url === '/v1/models') {
+      response.writeHead(200, { 'content-type': 'application/json' }).end('{"object":"list","data":[]}')
       return
     }
     const chunks = []
@@ -89,10 +91,10 @@ test('gateway applies safe sampling and reports exact streaming speed', async (c
   assert.equal(received.messages[0].role, 'system')
   assert.equal(received.max_tokens, 4096)
   assert.equal('max_completion_tokens' in received, false)
-  assert.equal(received.temperature, 0.6)
-  assert.equal(received.top_p, 0.95)
-  assert.equal(received.top_k, 20)
-  assert.equal(received.seed, 0)
+  assert.equal('temperature' in received, false)
+  assert.equal('top_p' in received, false)
+  assert.equal('top_k' in received, false)
+  assert.equal('seed' in received, false)
   assert.equal(received.stream_options.continuous_usage_stats, true)
 
   const telemetry = await fetch(`http://127.0.0.1:${gatewayPort}/speed`).then((item) => item.json())

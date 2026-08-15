@@ -4,25 +4,26 @@ import test from 'node:test'
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('ships the proven Qwen 3.8 27B Turbo D3 configuration', async () => {
+test('ships the MTPLX 2.7 Qwen 3.8 Optimized Speed Turbo D3 configuration', async () => {
   const runtime = await read('runtime/balto.mjs')
   for (const required of [
-    "const modelRepo = 'hashtofu/Qwen3.8-27B-MTPLX-4bit'",
+    "const engineVersion = '2.7.0'",
+    "repo: 'Youssofal/Qwen3.8-27B-MTPLX-Optimized-Speed'",
+    "repo: 'Youssofal/Qwen3.8-27B-MTPLX-Optimized-Speed-FP16'",
     "'--profile', 'turbo'",
     "'--generation-mode', 'mtp'",
     "'--depth', '3'",
-    "'--draft-temperature', '0.70'",
-    "'--draft-top-p', '0.95'",
-    "'--draft-top-k', '20'",
     "'--batching-preset', 'agent'",
     "'--ssd-session-cache', 'on'",
-    "'--preserve-thinking', 'scoped'",
+    "'--reasoning-effort', 'medium'",
+    "'--preserve-thinking', 'on'",
     "'--tool-prompt-mode', 'native'",
     "'--fan-mode', 'default'",
   ]) assert.ok(runtime.includes(required), required)
   assert.match(runtime, /memoryGib >= 96 \? 262144/)
   assert.match(runtime, /memoryGib >= 48 \? 65536 : 32768/)
   assert.match(runtime, /MTPLX_STATS_FOOTER_SCOPE: 'owned'/)
+  assert.doesNotMatch(runtime, /--draft-temperature|--draft-top-p|--draft-top-k/)
   assert.doesNotMatch(runtime, /wired-limit|max-diagnostic|fan-mode', 'max'/)
 })
 
@@ -33,7 +34,8 @@ test('one click installs private runtimes and preserves resumable model files', 
   assert.match(bootstrap, /node-v\$node_version-darwin-arm64/)
   assert.match(bootstrap, /shasum -a 256/)
   assert.match(bootstrap, /uv-aarch64-apple-darwin/)
-  assert.match(runtime, /'mtplx==2\.6\.0'/)
+  assert.match(runtime, /`mtplx==\$\{engineVersion\}`/)
+  assert.match(runtime, /installedVersion === engineVersion/)
   assert.match(runtime, /'@deepseek-ai\/dsh@0\.1\.0-rc\.6'/)
   assert.match(runtime, /npm_config_target_arch: 'arm64'/)
   assert.match(runtime, /const webProfileRoot = join\(dshHome, 'profiles', 'web'\)/)
@@ -44,7 +46,7 @@ test('one click installs private runtimes and preserves resumable model files', 
   assert.match(vision, /name\.startsWith\('vision_tower\.'\)/)
   assert.match(runtime, /'--progress-json'/)
   assert.match(runtime, /Downloads resume automatically/)
-  assert.match(runtime, /validModelAt\(legacyModelPath\)/)
+  assert.match(runtime, /validModelAt\(paths\.legacy\)/)
   assert.match(runtime, /const workspaceRoot = join\(homedir\(\), 'Balto'\)/)
   assert.doesNotMatch(runtime, /join\(homedir\(\), 'Documents', 'Balto'\)/)
   assert.match(runtime, /mkdir\(workspaceRoot/)
@@ -68,6 +70,9 @@ test('closing the app synchronously stops every owned process group', async () =
 test('Mac bundle is native, movable, updateable, and uses one embedded window', async () => {
   const config = JSON.parse(await read('src-tauri/tauri.conf.json'))
   const html = await read('src/index.html')
+  const app = await read('src/app.js')
+  const styles = await read('src/styles.css')
+  const nativeShell = await read('src-tauri/src/lib.rs')
   assert.deepEqual(config.bundle.targets, ['dmg', 'app'])
   assert.equal(config.bundle.macOS.minimumSystemVersion, '14.0')
   assert.equal(config.bundle.createUpdaterArtifacts, true)
@@ -75,15 +80,30 @@ test('Mac bundle is native, movable, updateable, and uses one embedded window', 
   assert.equal(config.app.windows[0].decorations, true)
   assert.equal(config.app.windows[0].resizable, true)
   assert.match(html, /data-tauri-drag-region/)
-  assert.match(await read('src-tauri/src/lib.rs'), /http:\/\/127\.0\.0\.1:3080\//)
+  assert.match(nativeShell, /http:\/\/127\.0\.0\.1:3080\//)
+  assert.match(nativeShell, /fn navigate_to_workspace\(app: &AppHandle, fresh: bool\)/)
+  assert.match(app, /function showEmbeddedWorkspace\(fresh = false\)/)
+  assert.match(app, /workspaceFrame\.src = `http:\/\/127\.0\.0\.1:3080\/\$\{suffix\}`/)
+  assert.match(app, /document\.body\.classList\.add\('workspace-mode'\)/)
+  assert.doesNotMatch(app, /setTimeout\(\(\) => invoke\('open_workspace'/)
+  assert.match(html, /<body class="launch-pending">/)
+  assert.match(html, /<iframe id="workspace-frame"/)
+  assert.match(styles, /body\.launch-pending > \* \{ visibility: hidden; \}/)
+  assert.match(styles, /grid-template-rows: 40px minmax\(0, 1fr\)/)
+  assert.match(config.app.security.csp, /frame-src http:\/\/127\.0\.0\.1:3080/)
 })
 
 test('harness declares vision, terminal, web, and computer tools', async () => {
   const runtime = await read('runtime/balto.mjs')
   const settings = await read('runtime/templates/settings.yaml')
   const tools = await read('runtime/balto-tools-mcp.mjs')
+  const patch = await read('runtime/patch-dsh.mjs')
   assert.match(settings, /defaultPreset: danger-full-access/)
   assert.match(settings, /- image/)
+  assert.match(patch, /Explicit image attachments in user messages are visible/)
+  assert.match(patch, /do not search the workspace or take a new screenshot/)
+  assert.match(patch, /patchFirstTurnImageOrdering/)
+  assert.match(patch, /for \(const message of orderedMessages\)/)
   for (const name of ['web_search', 'web_fetch', 'computer_screenshot', 'computer_click', 'computer_type', 'computer_hotkey', 'browser_open']) {
     assert.match(tools, new RegExp(`registerTool\\('${name}'`))
   }
@@ -94,13 +114,42 @@ test('harness declares vision, terminal, web, and computer tools', async () => {
   assert.match(await read('src-tauri/src/lib.rs'), /Privacy_ScreenCapture/)
 })
 
+test('long jobs compact, retry transient streams, and continue automatically', async () => {
+  const runtime = await read('runtime/balto.mjs')
+  const settings = await read('runtime/templates/settings.yaml')
+  const patch = await read('runtime/patch-dsh.mjs')
+  const migration = await read('runtime/configure-settings.mjs')
+
+  assert.match(runtime, /id: session-log-download\\n  disabled: true/)
+  assert.match(runtime, /id: compaction-basic\\n  disabled: false/)
+  assert.match(runtime, /thresholdRatio: 0\.45/)
+  assert.match(runtime, /retainTokens: 12000/)
+  assert.match(runtime, /maxOverflowRetries: 3/)
+  assert.match(runtime, /id: tool-result-pruner\\n  disabled: false/)
+  assert.match(runtime, /id: tool-goal\\n  disabled: false/)
+  assert.match(settings, /retryPolicy:\s+mode: normal\s+maxRetries: 5/)
+  assert.match(patch, /state\.needsCheckpoint = true/)
+  assert.match(patch, /requestDrive\(state\)/)
+  assert.match(migration, /providers\.balto/)
+  assert.match(migration, /currentModels/)
+})
+
+test('readiness polling never generates model work', async () => {
+  const runtime = await read('runtime/balto.mjs')
+  assert.match(runtime, /enginePort}\/v1\/models/)
+  assert.doesNotMatch(runtime, /enginePort}\/health/)
+})
+
 test('product UI is Mac-first and subscription-free', async () => {
   const html = await read('src/index.html')
   const app = await read('src/app.js')
+  const config = JSON.parse(await read('src-tauri/tauri.conf.json'))
   assert.match(html, /Built for Apple Silicon/)
   assert.match(html, /up to 3× faster/)
   assert.match(html, /No Homebrew, Docker, Terminal setup, account, or subscription required/)
-  assert.match(html, /About 17 GB/)
+  assert.match(html, /About 21 GB/)
+  assert.match(html, /Powered by MTPLX: github\.com\/youssofal\/MTPLX/)
+  assert.equal(config.bundle.resources['../THIRD_PARTY_NOTICES.md'], 'THIRD_PARTY_NOTICES.md')
   assert.match(app, /Apple M5 Max/)
   assert.doesNotMatch(`${html}\n${app}`, /RTX 5090|Windows 11|NVFP4|SGLang/)
 })

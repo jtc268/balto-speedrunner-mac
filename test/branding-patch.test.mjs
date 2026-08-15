@@ -15,17 +15,35 @@ test('branding patch runs before the upstream module and removes its boot wordma
   const dshRoot = join(root, 'dsh')
   const dist = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh-web-frontend', 'dist')
   const assets = join(dist, 'assets')
+  const driver = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh-goal-round-driver', 'lib')
+  const webApp = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh-web-app', 'lib')
+  const llmAdapter = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh-llm-pi-ai', 'lib')
   await mkdir(assets, { recursive: true })
+  await mkdir(driver, { recursive: true })
+  await mkdir(webApp, { recursive: true })
+  await mkdir(llmAdapter, { recursive: true })
   await writeFile(
     join(dist, 'index.html'),
     '<html><head><title>DeepSeek Harness</title><script type="module" src="/assets/app.js"></script></head><body><div id="root"></div></body></html>',
   )
   await writeFile(join(assets, 'app.js'), 'const boot={children:"HARNESS"};const product="DeepSeek Harness"')
+  await writeFile(join(driver, 'index.js'), `if (event.data.reason.kind === "max-tokens") {
+\t\t\t\t\t\tdisarm(state);
+\t\t\t\t\t\treturn;
+\t\t\t\t\t}`)
+  await writeFile(join(webApp, 'index.js'), 'The browser provides no implicit DOM, route, or screenshot context.')
+  await writeFile(join(llmAdapter, 'index.js'), `async function toPiContextWithImages(options, attachments) {
+\tconst toolNames = /* @__PURE__ */ new Map();
+\tconst messages = [];
+\tfor (const message of options.messages) {`)
 
   try {
     await execFileAsync(process.execPath, [join(repoRoot, 'runtime', 'patch-dsh.mjs'), dshRoot, join(repoRoot, 'runtime')])
     const html = await readFile(join(dist, 'index.html'), 'utf8')
     const bundle = await readFile(join(assets, 'app.js'), 'utf8')
+    const continuation = await readFile(join(driver, 'index.js'), 'utf8')
+    const imageGuidance = await readFile(join(webApp, 'index.js'), 'utf8')
+    const multimodalAdapter = await readFile(join(llmAdapter, 'index.js'), 'utf8')
     assert.ok(html.indexOf('/assets/balto-ui.js') < html.indexOf('<script type="module"'))
     assert.match(html, /id="balto-prepaint"/)
     assert.match(html, /svg\[viewBox="0 0 182 24"\]\{visibility:hidden!important\}/)
@@ -33,6 +51,13 @@ test('branding patch runs before the upstream module and removes its boot wordma
     assert.doesNotMatch(bundle, /HARNESS/)
     assert.doesNotMatch(bundle, /DeepSeek Harness/)
     assert.match(bundle, /children:"BALTO"/)
+    assert.match(continuation, /state\.needsCheckpoint = true/)
+    assert.match(continuation, /requestDrive\(state\)/)
+    assert.match(imageGuidance, /Explicit image attachments in user messages are visible/)
+    assert.doesNotMatch(imageGuidance, /no implicit DOM, route, or screenshot context/)
+    assert.match(multimodalAdapter, /message\.source\?\.kind === "agent-instructions"/)
+    assert.match(multimodalAdapter, /message\.source\?\.kind === "plugin"/)
+    assert.match(multimodalAdapter, /for \(const message of orderedMessages\)/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -45,7 +70,7 @@ test('preview badge is removed from the Balto hero', async () => {
   assert.match(script, /\['@deepseek-ai\/dsh-system-prompt', 'Balto system prompt'\]/)
 })
 
-test('live meter is compact, animated, and positioned beside session export', async () => {
+test('live meter, attachment control, and mobile shell are present', async () => {
   const script = await readFile(join(repoRoot, 'runtime', 'assets', 'balto-ui.js'), 'utf8')
   assert.doesNotMatch(script, /class="balto-brand"/)
   assert.doesNotMatch(script, /class="balto-name">Balto/)
@@ -56,4 +81,10 @@ test('live meter is compact, animated, and positioned beside session export', as
   assert.match(script, /function positionSpeedBar\(\)/)
   assert.match(script, /\^Session log\\b/)
   assert.match(script, /getBoundingClientRect\(\)\.left \+ 12/)
+  assert.match(script, /input\.accept = 'image\/png,image\/jpeg,image\/webp,image\/gif'/)
+  assert.match(script, /option\.setAttribute\('aria-label', 'Attach file'\)/)
+  assert.match(script, /new Event\('paste'/)
+  assert.match(script, /const mobileSidebarQuery = window\.matchMedia\('\(max-width: 720px\)'\)/)
+  assert.match(script, /#balto-mobile-sidebar-backdrop/)
+  assert.match(script, /\.VOzbGW_panel \{ width: 100vw !important/)
 })

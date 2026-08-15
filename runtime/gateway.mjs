@@ -45,10 +45,9 @@ function tuneRequest(buffer, path) {
   body.messages = body.messages?.map((message) =>
     message?.role === 'developer' ? { ...message, role: 'system' } : message,
   )
-  body.temperature ??= 0.6
-  body.top_p ??= 0.95
-  body.top_k ??= 20
-  body.seed ??= 0
+  // MTPLX 2.7 owns the Qwen 3.8 sampler preset for managed clients. This
+  // preserves the model's official temperature 1.0 contract and lets each
+  // optimized artifact supply its calibrated draft sampler.
   const requestedMaxTokens = Number(body.max_tokens ?? body.max_completion_tokens ?? 32768)
   body.max_tokens = Math.min(requestedMaxTokens, 32768)
   delete body.max_completion_tokens
@@ -201,7 +200,7 @@ const server = http.createServer(async (request, response) => {
   }
   if (request.url === '/health') {
     try {
-      const check = await fetch(new URL('/health', upstream), { signal: AbortSignal.timeout(1500) })
+      const check = await fetch(new URL('/v1/models', upstream), { signal: AbortSignal.timeout(1500) })
       json(response, check.ok ? 200 : 503, { ok: check.ok, upstream: upstream.toString() })
     } catch (error) {
       json(response, 503, { ok: false, error: error.message })

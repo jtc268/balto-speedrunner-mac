@@ -71,4 +71,91 @@ async function patchUserFacingBundles(directory) {
 }
 
 await patchUserFacingBundles(deepseekRoot)
+
+async function patchLongRunContinuation() {
+  const driverPath = join(deepseekRoot, 'dsh-goal-round-driver', 'lib', 'index.js')
+  try {
+    await access(driverPath)
+  } catch {
+    throw new Error('The Balto long-run continuation driver was not found')
+  }
+
+  const original = await readFile(driverPath, 'utf8')
+  const upstreamBehavior = `if (event.data.reason.kind === "max-tokens") {
+\t\t\t\t\t\tdisarm(state);
+\t\t\t\t\t\treturn;
+\t\t\t\t\t}`
+  const baltoBehavior = `if (event.data.reason.kind === "max-tokens") {
+\t\t\t\t\t\tstate.needsCheckpoint = true;
+\t\t\t\t\t\trequestDrive(state);
+\t\t\t\t\t\treturn;
+\t\t\t\t\t}`
+
+  if (original.includes(baltoBehavior)) return
+  if (!original.includes(upstreamBehavior)) {
+    throw new Error('The installed continuation driver changed and could not be patched safely')
+  }
+  await writeFile(driverPath, original.replace(upstreamBehavior, baltoBehavior))
+}
+
+await patchLongRunContinuation()
+
+async function patchExplicitImageGuidance() {
+  const webAppPath = join(deepseekRoot, 'dsh-web-app', 'lib', 'index.js')
+  try {
+    await access(webAppPath)
+  } catch {
+    throw new Error('The Balto web prompt module was not found')
+  }
+
+  const original = await readFile(webAppPath, 'utf8')
+  const upstreamGuidance = 'The browser provides no implicit DOM, route, or screenshot context.'
+  const baltoGuidance = 'The browser provides no implicit live DOM or route context. Explicit image attachments in user messages are visible: analyze them directly, and do not search the workspace or take a new screenshot unless the user asks or the attachment cannot be decoded.'
+
+  if (original.includes(baltoGuidance)) return
+  if (!original.includes(upstreamGuidance)) {
+    throw new Error('The installed web prompt changed and could not be patched safely')
+  }
+  await writeFile(webAppPath, original.replace(upstreamGuidance, baltoGuidance))
+}
+
+await patchExplicitImageGuidance()
+
+async function patchFirstTurnImageOrdering() {
+  const adapterPath = join(deepseekRoot, 'dsh-llm-pi-ai', 'lib', 'index.js')
+  try {
+    await access(adapterPath)
+  } catch {
+    throw new Error('The Balto multimodal adapter was not found')
+  }
+
+  const original = await readFile(adapterPath, 'utf8')
+  const upstreamLoop = `async function toPiContextWithImages(options, attachments) {
+\tconst toolNames = /* @__PURE__ */ new Map();
+\tconst messages = [];
+\tfor (const message of options.messages) {`
+  const roleOrderedLoop = `async function toPiContextWithImages(options, attachments) {
+\tconst toolNames = /* @__PURE__ */ new Map();
+\tconst messages = [];
+\tconst orderedMessages = [...options.messages.filter((message) => message.role === "system"), ...options.messages.filter((message) => message.role !== "system")];
+\tfor (const message of orderedMessages) {`
+  const baltoLoop = `async function toPiContextWithImages(options, attachments) {
+\tconst toolNames = /* @__PURE__ */ new Map();
+\tconst messages = [];
+\tconst isInstruction = (message) => message.role === "system" || message.source?.kind === "agent-instructions" || message.source?.kind === "plugin";
+\tconst orderedMessages = [...options.messages.filter(isInstruction), ...options.messages.filter((message) => !isInstruction(message))];
+\tfor (const message of orderedMessages) {`
+
+  if (original.includes(baltoLoop)) return
+  if (original.includes(roleOrderedLoop)) {
+    await writeFile(adapterPath, original.replace(roleOrderedLoop, baltoLoop))
+    return
+  }
+  if (!original.includes(upstreamLoop)) {
+    throw new Error('The installed multimodal adapter changed and could not be patched safely')
+  }
+  await writeFile(adapterPath, original.replace(upstreamLoop, baltoLoop))
+}
+
+await patchFirstTurnImageOrdering()
 console.log(`Patched Balto branding in ${dist}`)

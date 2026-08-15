@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="680" viewBox="0 0 1400 680" role="img" aria-labelledby="title desc">
-  <title id="title">Balto Speedrunner — triple Qwen 3.8 27B inference speed on Mac</title>
+  <title id="title">Balto Speedrunner: triple Qwen 3.8 27B inference speed on Mac</title>
   <desc id="desc">A dark aurora product banner showing Balto Turbo D3 at 84.7 end-to-end tokens per second, 3.03 times the autoregressive baseline.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1400" y2="680" gradientUnits="userSpaceOnUse">
@@ -87,7 +87,7 @@
   </g>
 
   <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-    <text x="804" y="143" fill="#8F95A5" font-size="13" font-weight="750" letter-spacing="2.2">MEASURED END-TO-END SPEED</text>
+    <text x="804" y="143" fill="#8F95A5" font-size="13" font-weight="750" letter-spacing="2.2">M5 MAX TEST</text>
     <text x="804" y="207" fill="#FFFFFF" font-size="48" font-weight="900" letter-spacing="-2">3.03×</text>
     <text x="948" y="202" fill="#8F95A5" font-size="16" font-weight="600">FASTER THAN BASELINE</text>
     <text x="948" y="224" fill="#666C7C" font-size="13">warm generation • M5 Max</text>
