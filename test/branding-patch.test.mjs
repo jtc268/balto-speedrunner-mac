@@ -18,10 +18,12 @@ test('branding patch runs before the upstream module and removes its boot wordma
   const driver = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh-goal-round-driver', 'lib')
   const webApp = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh-web-app', 'lib')
   const llmAdapter = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh-llm-pi-ai', 'lib')
+  const codePreset = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh', 'config', 'agent-presets', 'code')
   await mkdir(assets, { recursive: true })
   await mkdir(driver, { recursive: true })
   await mkdir(webApp, { recursive: true })
   await mkdir(llmAdapter, { recursive: true })
+  await mkdir(codePreset, { recursive: true })
   await writeFile(
     join(dist, 'index.html'),
     '<html><head><title>DeepSeek Harness</title><script type="module" src="/assets/app.js"></script></head><body><div id="root"></div></body></html>',
@@ -36,6 +38,11 @@ test('branding patch runs before the upstream module and removes its boot wordma
 \tconst toolNames = /* @__PURE__ */ new Map();
 \tconst messages = [];
 \tfor (const message of options.messages) {`)
+  await writeFile(join(codePreset, 'agent.cordis.yml'), `- id: tool-presentation
+  name: '@deepseek-ai/dsh-agent-tool-presentation'
+  config:
+    mode: code
+`)
 
   try {
     await execFileAsync(process.execPath, [join(repoRoot, 'runtime', 'patch-dsh.mjs'), dshRoot, join(repoRoot, 'runtime')])
@@ -44,6 +51,7 @@ test('branding patch runs before the upstream module and removes its boot wordma
     const continuation = await readFile(join(driver, 'index.js'), 'utf8')
     const imageGuidance = await readFile(join(webApp, 'index.js'), 'utf8')
     const multimodalAdapter = await readFile(join(llmAdapter, 'index.js'), 'utf8')
+    const patchedCodePreset = await readFile(join(codePreset, 'agent.cordis.yml'), 'utf8')
     assert.ok(html.indexOf('/assets/balto-ui.js') < html.indexOf('<script type="module"'))
     assert.match(html, /id="balto-prepaint"/)
     assert.match(html, /svg\[viewBox="0 0 182 24"\]\{visibility:hidden!important\}/)
@@ -58,6 +66,8 @@ test('branding patch runs before the upstream module and removes its boot wordma
     assert.match(multimodalAdapter, /message\.source\?\.kind === "agent-instructions"/)
     assert.match(multimodalAdapter, /message\.source\?\.kind === "plugin"/)
     assert.match(multimodalAdapter, /for \(const message of orderedMessages\)/)
+    assert.match(patchedCodePreset, /mode: both/)
+    assert.doesNotMatch(patchedCodePreset, /mode: code/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
