@@ -98,3 +98,14 @@ test('live meter, attachment control, and mobile shell are present', async () =>
   assert.match(script, /#balto-mobile-sidebar-backdrop/)
   assert.match(script, /\.VOzbGW_panel \{ width: 100vw !important/)
 })
+
+test('signed updater stays available inside the coding workspace', async () => {
+  const script = await readFile(join(repoRoot, 'runtime', 'assets', 'balto-ui.js'), 'utf8')
+  assert.match(script, /const invoke = window\.__TAURI__\?\.core\?\.invoke/)
+  assert.match(script, /id="balto-update-button"/)
+  assert.match(script, /invoke\('check_for_updates'\)/)
+  assert.match(script, /invoke\('install_update'\)/)
+  assert.match(script, /setInterval\(checkForWorkspaceUpdate, 5 \* 60 \* 1000\)/)
+  assert.match(script, /window\.addEventListener\('focus', checkForWorkspaceUpdate\)/)
+  assert.match(script, /document\.visibilityState === 'visible'/)
+})
