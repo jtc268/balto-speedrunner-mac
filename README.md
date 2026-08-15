@@ -1,72 +1,147 @@
 <p align="center">
-  <img src="src/balto-mark.svg" width="92" alt="Balto Speedrunner mark" />
+  <img src=".github/assets/readme-hero.svg" width="100%" alt="Balto Speedrunner — triple Qwen 3.8 27B inference speed on Mac" />
 </p>
 
-# Balto Speedrunner for Mac
+<h1 align="center">Triple Your Qwen 3.8 27B Inference Speed on Mac</h1>
 
-Qwen 3.8 27B at up to 3x the speed on Apple Silicon, wrapped in a complete local coding agent. Install one native Mac app; Balto downloads, verifies, configures, and launches everything else.
+<p align="center">
+  <strong>A high-speed, fully local coding agent for Apple Silicon.</strong><br />
+  One beautiful native app. No Docker. No Homebrew. No cloud model. No subscription.
+</p>
 
-No Homebrew, Docker, Terminal setup, cloud model account, or subscription is required. Inference and tools run locally. The only network use is the first runtime/model download, explicit web tool calls, and signed update checks.
+<p align="center">
+  <img alt="macOS 14+" src="https://img.shields.io/badge/macOS_14%2B-Apple_Silicon-11131A?style=for-the-badge&logo=apple&logoColor=white" />
+  <img alt="Qwen 3.8 27B" src="https://img.shields.io/badge/Qwen_3.8-27B-8F5CFF?style=for-the-badge" />
+  <img alt="MLX native" src="https://img.shields.io/badge/MLX-Native-19BFFF?style=for-the-badge" />
+  <img alt="Local and private" src="https://img.shields.io/badge/Inference-Local_%26_Private-24D49A?style=for-the-badge" />
+</p>
 
-## What users get
+<p align="center">
+  <a href="#speed-you-can-see"><strong>Benchmarks</strong></a> ·
+  <a href="#a-complete-agent-not-just-a-chat-box"><strong>Agent tools</strong></a> ·
+  <a href="#one-click-zero-ceremony"><strong>Setup</strong></a> ·
+  <a href="#supported-macs"><strong>Supported Macs</strong></a>
+</p>
 
-- Qwen 3.8 27B 4-bit with the measured Balto Turbo D3 configuration.
-- A beautiful embedded coding workspace based on DeepSeek Harness.
-- Real terminal and filesystem tools, full-Mac access mode, resumable jobs, and coding workflows.
-- Vision through the same Qwen 3.8 27B route: attach an image or let the agent read a screenshot.
-- Subscription-free public web search and public-page fetch, with private-network requests blocked.
-- Optional Mac computer use: screenshot, click, type, keyboard shortcuts, and browser launch.
-- Live token-per-second telemetry in the workspace and an MTPLX speed footer on responses.
-- Signed in-app updates, with model files preserved across app updates.
-- Hard lifecycle ownership: closing or quitting Balto stops its engine, gateway, harness, tools, and active setup process.
+---
 
-## Measured speed
+Balto Speedrunner turns **Qwen 3.8 27B 4-bit** into a complete local coding environment tuned for Apple Silicon. It packages the measured MTPLX Turbo D3 path, native vision, DeepSeek Harness, terminal access, web tools, and Mac computer control behind one app icon.
 
-Our reproducible warm tune on an M5 Max with 128 GB unified memory and Qwen 3.8 27B 4-bit measured:
+> [!IMPORTANT]
+> **The headline is measured, not estimated.** A controlled warm run on an M5 Max reached **84.7 end-to-end tok/s** with Balto Turbo D3 versus **27.9 tok/s** autoregressive—**3.03× the baseline**. Real turns vary, so Balto shows live tok/s on every response.
 
-| Lane | Decode | End to end | Relative end-to-end speed |
-| --- | ---: | ---: | ---: |
-| Autoregressive baseline | 28.7 tok/s | 27.9 tok/s | 1.00x |
-| Balto Turbo D1 | 53.8 tok/s | 51.3 tok/s | 1.84x |
-| Balto Turbo D2 | 80.3 tok/s | 74.4 tok/s | 2.66x |
-| Balto Turbo D3 | **92.5 tok/s** | **84.7 tok/s** | **3.03x** |
+## Why Balto feels different
 
-Those are controlled warm-generation results. Real agent turns vary with prompt length, Qwen's draft acceptance, tool calls, vision, thermal state, and prefix-cache reuse. Balto shows the actual live rate instead of promising every response will run at the headline number.
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>⚡ Actually fast</h3>
+      Native MLX inference, MTP speculation, depth-3 drafting, prefix caching, and memory-aware context sizing—preconfigured and ready.
+    </td>
+    <td width="33%" valign="top">
+      <h3>🧠 The full 27B model</h3>
+      The exact Qwen 3.8 27B text model, plus its matching native vision tower. No silent swap to a smaller vision model.
+    </td>
+    <td width="33%" valign="top">
+      <h3>🛠️ A real coding agent</h3>
+      Terminal, files, web search, page fetch, screenshots, mouse, keyboard, browser launch, and resumable coding jobs.
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>🔒 Local by default</h3>
+      Prompts, files, inference, and tool decisions stay on your Mac. Network access is limited to downloads, updates, and web tools you invoke.
+    </td>
+    <td width="33%" valign="top">
+      <h3>🖥️ Native Mac experience</h3>
+      One movable macOS window, a proper Dock icon, voice-dictation-friendly input, live speed telemetry, and no duplicate browser UI.
+    </td>
+    <td width="33%" valign="top">
+      <h3>🧊 Clean lifecycle</h3>
+      Close Balto and every Balto-owned model, gateway, harness, setup process, and helper stops. Your fans are not left spinning.
+    </td>
+  </tr>
+</table>
 
-For a quick fixed-prompt check against a running local stack, use `npm run benchmark:local`. The August 15 release smoke on the same M5 Max measured 74.7 tok/s for Turbo D3 versus 26.1 tok/s for AR on its production-quality Python continuation (2.86x end to end).
+## Speed you can see
+
+Reproducible warm-generation results on an **M5 Max with 128 GB unified memory**:
+
+| Inference lane | Decode | End-to-end | Relative end-to-end speed |
+| :--- | ---: | ---: | ---: |
+| Autoregressive baseline | 28.7 tok/s | 27.9 tok/s | 1.00× |
+| Balto Turbo D1 | 53.8 tok/s | 51.3 tok/s | 1.84× |
+| Balto Turbo D2 | 80.3 tok/s | 74.4 tok/s | 2.66× |
+| **Balto Turbo D3** | **92.5 tok/s** | **84.7 tok/s** | **3.03×** |
+
+The production-path August 15 smoke test measured **74.7 tok/s** for Turbo D3 versus **26.1 tok/s** for autoregressive generation—**2.86× end to end**. Run the same fixed-prompt check against a local stack with:
+
+```bash
+npm run benchmark:local
+```
+
+Performance changes with prompt length, draft acceptance, thermal state, vision, tool calls, and prefix-cache reuse. That is why the app reports the **actual token rate beneath every response** instead of hiding behind a lab number.
+
+## A complete agent, not just a chat box
+
+| Capability | Included | How it works |
+| :--- | :---: | :--- |
+| Terminal and filesystem | ✅ | Execute commands, inspect projects, edit files, run tests, and resume jobs |
+| Web search and page fetch | ✅ | Subscription-free public search and fetching with private-network blocking |
+| Native Qwen vision | ✅ | Attach images or let the agent inspect a Mac screenshot |
+| Mac computer control | ✅ | Screenshot, click, type, hotkeys, and browser launch with optional permissions |
+| Long context | ✅ | Automatically sized from 32K to 262K based on unified memory |
+| Live performance telemetry | ✅ | Per-response tok/s, token count, decode time, and persistent speed meter |
+| Automatic updates | ✅ | Signed Tauri updater artifacts without deleting the model cache |
+| Hard-stop on close | ✅ | No orphaned inference servers, helpers, jobs, or fan overrides |
+
+## One click. Zero ceremony.
+
+Drop Balto into Applications and launch it. On first run, the app does the rest:
+
+```text
+Balto.dmg
+   └── Verify this Mac
+       └── Install pinned ARM64 runtime
+           └── Download or reuse Qwen 3.8 27B
+               └── Add the matching Qwen 3.8 vision tower
+                   └── Tune context + Turbo D3
+                       └── Open the local coding workspace
+```
+
+Balto installs pinned MTPLX and DeepSeek Harness components inside its own application data directory. It does **not** replace system Python, change Homebrew packages, or require a Terminal walkthrough. Downloads resume after interruption, and existing verified model weights can be reused through an APFS clone.
+
+The app-owned model and vision files use roughly **17 GB**. Allow about **28 GB free** for the complete runtime, model, and working cache.
 
 ## Supported Macs
 
-Balto requires:
+| Mac | Unified memory | Expected warm decode |
+| :--- | ---: | ---: |
+| M1 / M2 Pro or Max | 32 GB+ | 15–40 tok/s |
+| M3 / M4 / M5 Pro | 36 GB+ | 20–50 tok/s |
+| M3 / M4 / M5 Max | 48 GB+ | 35–90 tok/s |
+| M1 / M2 / M3 / M4 Ultra | 64 GB+ | 40–100 tok/s |
 
-- Apple Silicon: M1, M2, M3, M4, or M5 family.
-- macOS 14 Sonoma or newer.
-- At least 32 GB unified memory; 48 GB or more is recommended.
-- About 28 GB free for the app-owned runtime, Qwen model, and working cache.
+**Requirements:** Apple Silicon, macOS 14 Sonoma or newer, and at least 32 GB unified memory. **48 GB or more is recommended.** Intel Macs and Apple Silicon Macs below 32 GB are not supported by this 27B edition.
 
-Base Macs with less than 32 GB are not supported by this 27B edition. Approximate warm decode expectations below are planning ranges, not guarantees:
+Balto sizes context automatically:
 
-| Mac class | Memory | Expected warm decode |
-| --- | ---: | ---: |
-| M1/M2 Pro or Max | 32 GB+ | 15-40 tok/s |
-| M3/M4/M5 Pro | 36 GB+ | 20-50 tok/s |
-| M3/M4/M5 Max | 48 GB+ | 35-90 tok/s |
-| M1/M2/M3/M4 Ultra | 64 GB+ | 40-100 tok/s |
+- **32–47 GB:** 32K context
+- **48–63 GB:** 64K context
+- **64–95 GB:** 131K context
+- **96 GB+:** up to 262K context
 
-Balto automatically sizes usable context to memory: 32K at 32-47 GB, 64K at 48-63 GB, 131K at 64-95 GB, and up to 262K at 96 GB or more.
+These ranges are planning guidance, not guaranteed rates. Memory bandwidth, thermals, active apps, context length, and acceptance rate all matter.
 
-## One-click setup
+## Local means local
 
-The DMG contains the native Balto shell plus pinned ARM64 Node and `uv` bootstrap runtimes. On first launch Balto:
+- **No inference subscription.** Qwen runs on the Mac.
+- **No cloud model account.** No OpenAI, Anthropic, or hosted inference key is required.
+- **No metered web-search plan.** The built-in public search and fetch path is subscription-free.
+- **No mystery background daemon.** Quitting the app stops the stack it owns.
+- **No model re-download after normal updates.** The cache survives application upgrades.
 
-1. Confirms Apple Silicon, macOS, unified memory, and disk space.
-2. Creates its private runtime and cache under the app's local data directory.
-3. Installs pinned MTPLX 2.6.0 and DeepSeek Harness 0.1.0-rc.6 without changing system packages, and creates the permission-free `~/Balto` workspace.
-4. Reuses the exact verified Qwen 3.8 language weights if MTPLX already has them; otherwise downloads them with resume support, then adds the revision-pinned native Qwen 3.8 vision tower (about 17 GB total).
-5. Loads Qwen with Turbo, native MTP, depth 3, native tool prompting, standard sampling, and a context tier sized to the Mac.
-6. Opens the coding workspace inside the same native app window.
-
-Accessibility and Screen Recording are optional macOS permissions. Users only need them for computer-control tasks; coding, local terminal tools, vision uploads, and web search work without them.
+The network is used for first-time runtime/model downloads, signed update checks, and explicit web tool calls. Accessibility and Screen Recording are requested only when computer-control features need them.
 
 ## Development
 
@@ -79,19 +154,22 @@ npm test
 npm run build
 ```
 
-`npm run build` downloads and checksum-verifies the pinned ARM64 Node and `uv` bootstrap binaries before Tauri creates the `.app` and `.dmg`.
+`npm run build` downloads and checksum-verifies the pinned ARM64 Node and `uv` bootstrap binaries before Tauri creates the app and DMG.
 
-## Signing and releases
+<details>
+<summary><strong>Signing and release architecture</strong></summary>
 
-Customer releases use three protections:
+Customer releases use three independent protections:
 
-1. Developer ID Application signing identifies Adore LLC to Gatekeeper.
-2. Apple notarization and stapling let a downloaded DMG open cleanly.
-3. Tauri updater signatures authenticate every in-app update artifact.
+1. **Developer ID Application signing** identifies Adore LLC to Gatekeeper.
+2. **Apple notarization and stapling** allow a downloaded DMG to open cleanly.
+3. **Tauri updater signatures** authenticate every in-app update artifact.
 
-The release workflow expects Apple signing/notarization secrets and the Tauri updater private key. It publishes through the separate `jtc268/balto-speedrunner-mac` repository.
+The release workflow imports the distribution certificate into an ephemeral CI keychain, builds the ARM64 bundle, submits it for notarization, staples Apple's ticket, signs the updater metadata, and creates a GitHub release.
 
-## License and credits
+</details>
+
+## Credits
 
 Balto Speedrunner is copyright 2026 Adore LLC. All rights reserved.
 
