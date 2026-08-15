@@ -1,10 +1,19 @@
 import http from 'node:http'
+import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 
 const host = '127.0.0.1'
 const port = Number(process.env.BALTO_GATEWAY_PORT || 30100)
 const upstream = new URL(process.env.BALTO_INFERENCE_URL || 'http://127.0.0.1:30000')
 const servedModel = 'balto-qwen-3.8-27b'
+const baltoData = process.env.BALTO_DATA || ''
+const baltoResources = process.env.BALTO_RESOURCES || ''
+const baltoNode = process.env.BALTO_NODE || process.execPath
+const remoteStatePath = baltoData ? join(baltoData, 'state.json') : ''
+let remoteAction = null
 
 const speed = {
   state: 'idle',
@@ -24,6 +33,107 @@ function json(response, status, value) {
     'access-control-allow-methods': 'GET, POST, OPTIONS',
   })
   response.end(body)
+}
+
+const LOCAL_REMOTE_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
+
+function configuredTailscaleDnsName() {
+  if (!remoteStatePath) return null
+  try {
+    return JSON.parse(readFileSync(remoteStatePath, 'utf8')).tailscaleDnsName?.toLowerCase() || null
+  } catch {
+    return null
+  }
+}
+
+function remoteOrigin(request) {
+  const origin = request.headers.origin
+  if (!origin) {
+    const address = request.socket.remoteAddress || ''
+    return /^(::1|::ffff:127\.0\.0\.1|127\.0\.0\.1)$/.test(address) ? '*' : null
+  }
+  try {
+    const url = new URL(origin)
+    const hostname = url.hostname.toLowerCase()
+    if (LOCAL_REMOTE_HOSTS.has(hostname)) return origin
+    if (url.protocol === 'https:' && hostname === configuredTailscaleDnsName()) return origin
+  } catch {}
+  return null
+}
+
+function remoteJson(request, response, status, value) {
+  const allowedOrigin = remoteOrigin(request)
+  if (!allowedOrigin) {
+    const body = JSON.stringify({ ok: false, error: 'Remote settings are available only inside Balto' })
+    response.writeHead(403, {
+      'content-type': 'application/json; charset=utf-8',
+      'content-length': Buffer.byteLength(body),
+      vary: 'Origin',
+    })
+    response.end(body)
+    return
+  }
+  const body = JSON.stringify(value)
+  response.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'content-length': Buffer.byteLength(body),
+    'access-control-allow-origin': allowedOrigin,
+    'access-control-allow-headers': 'content-type',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    vary: 'Origin',
+  })
+  response.end(body)
+}
+
+async function readRemoteStatus() {
+  if (!remoteStatePath) return { available: false, remoteEnabled: false, remoteUrl: null }
+  try {
+    const state = JSON.parse(await readFile(remoteStatePath, 'utf8'))
+    return {
+      available: true,
+      tailscaleInstalled: Boolean(state.tailscaleInstalled),
+      tailscaleSignedIn: Boolean(state.tailscaleSignedIn),
+      tailscaleDnsName: state.tailscaleDnsName || null,
+      remoteEnabled: Boolean(state.remoteEnabled),
+      remoteUrl: state.remoteUrl || null,
+    }
+  } catch (error) {
+    return { available: false, remoteEnabled: false, remoteUrl: null, error: error.message }
+  }
+}
+
+function runRemoteAction(enabled) {
+  if (remoteAction) return remoteAction
+  if (!baltoData || !baltoResources) return Promise.reject(new Error('Balto remote controls are not configured'))
+  const args = [
+    join(baltoResources, 'balto.mjs'),
+    enabled ? 'remote-on' : 'remote-off',
+    baltoData,
+    baltoResources,
+  ]
+  remoteAction = new Promise((resolve, reject) => {
+    const child = spawn(baltoNode, args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    let errorOutput = ''
+    child.stderr.on('data', (chunk) => {
+      if (errorOutput.length < 8192) errorOutput += chunk.toString('utf8')
+    })
+    child.once('error', reject)
+    child.once('exit', async (code) => {
+      if (code === 0) {
+        resolve()
+        return
+      }
+      let stateMessage = ''
+      try {
+        const state = JSON.parse(await readFile(remoteStatePath, 'utf8'))
+        stateMessage = state.warning || state.message || ''
+      } catch {}
+      reject(new Error(errorOutput.trim() || stateMessage || `Balto remote action exited with code ${code}`))
+    })
+  }).finally(() => {
+    remoteAction = null
+  })
+  return remoteAction
 }
 
 async function readBody(request) {
@@ -185,6 +295,22 @@ async function proxy(request, response) {
 }
 
 const server = http.createServer(async (request, response) => {
+  const requestUrl = new URL(request.url, 'http://127.0.0.1')
+  if (requestUrl.pathname === '/remote' && request.method === 'OPTIONS') {
+    const allowedOrigin = remoteOrigin(request)
+    if (!allowedOrigin) {
+      remoteJson(request, response, 403, { ok: false })
+      return
+    }
+    response.writeHead(204, {
+      'access-control-allow-origin': allowedOrigin,
+      'access-control-allow-headers': 'content-type',
+      'access-control-allow-methods': 'GET, POST, OPTIONS',
+      vary: 'Origin',
+    })
+    response.end()
+    return
+  }
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
       'access-control-allow-origin': '*',
@@ -192,6 +318,25 @@ const server = http.createServer(async (request, response) => {
       'access-control-allow-methods': 'GET, POST, OPTIONS',
     })
     response.end()
+    return
+  }
+  if (requestUrl.pathname === '/remote' && request.method === 'GET') {
+    remoteJson(request, response, 200, await readRemoteStatus())
+    return
+  }
+  if (requestUrl.pathname === '/remote' && request.method === 'POST') {
+    if (!remoteOrigin(request)) {
+      remoteJson(request, response, 403, { ok: false })
+      return
+    }
+    try {
+      const body = JSON.parse((await readBody(request)).toString('utf8'))
+      if (typeof body.enabled !== 'boolean') throw new Error('enabled must be a boolean')
+      await runRemoteAction(body.enabled)
+      remoteJson(request, response, 200, { ok: true, ...(await readRemoteStatus()) })
+    } catch (error) {
+      remoteJson(request, response, 500, { ok: false, error: error.message })
+    }
     return
   }
   if (request.url === '/speed') {

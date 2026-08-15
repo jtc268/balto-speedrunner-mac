@@ -3,6 +3,9 @@
   const speedEndpoint = LOCAL_HOSTS.has(location.hostname)
     ? 'http://127.0.0.1:30100/speed'
     : `https://${location.hostname}:30100/speed`
+  const remoteEndpoint = LOCAL_HOSTS.has(location.hostname)
+    ? 'http://127.0.0.1:30100/remote'
+    : `https://${location.hostname}:30100/remote`
   const invoke = window.__TAURI__?.core?.invoke
 
   document.title = 'Balto Speedrunner'
@@ -79,6 +82,24 @@
     }
   }
 
+  function brandCollapsedSidebar() {
+    for (const toggle of document.querySelectorAll('button[aria-label="Open sidebar"]')) {
+      if (toggle.querySelector('[data-balto-collapse-icon]')) continue
+      const whale = toggle.querySelector('svg[class*="_railFish"]')
+      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      icon.setAttribute('viewBox', '0 0 24 24')
+      icon.setAttribute('fill', 'none')
+      icon.setAttribute('stroke', 'currentColor')
+      icon.setAttribute('stroke-width', '1.8')
+      icon.setAttribute('stroke-linecap', 'round')
+      icon.setAttribute('stroke-linejoin', 'round')
+      icon.setAttribute('aria-hidden', 'true')
+      icon.dataset.baltoCollapseIcon = 'true'
+      icon.innerHTML = '<rect x="3.5" y="3.5" width="17" height="17" rx="3"></rect><path d="M9 4v16"></path>'
+      toggle.insertBefore(icon, whale || toggle.firstChild)
+    }
+  }
+
   function simplifyEffortControls() {
     for (const trigger of document.querySelectorAll('button[aria-label^="Select model"]')) {
       const root = trigger.parentElement
@@ -135,6 +156,187 @@
   }
   mobileSidebarQuery.addEventListener?.('change', syncMobileSidebar)
 
+  function closeMobileSidebarAfterSelection(event) {
+    if (!mobileSidebarQuery.matches || !(event.target instanceof Element)) return
+    const sidebar = event.target.closest('.hHd-Xa_root:not(.hHd-Xa_collapsed)')
+    if (!sidebar) return
+
+    const session = event.target.closest('[role="treeitem"]')
+    const newSessionButton = event.target.closest('button[aria-label]')
+    const selectedSession = Boolean(session && !session.hasAttribute('aria-expanded'))
+    const selectedNewSession = /^(new session|new chat)$/i.test(newSessionButton?.getAttribute('aria-label') || '')
+    if (!selectedSession && !selectedNewSession) return
+
+    setTimeout(() => {
+      if (mobileSidebarQuery.matches) sidebar.querySelector('button[aria-label="Collapse sidebar"]')?.click()
+    }, 0)
+  }
+  document.addEventListener('click', closeMobileSidebarAfterSelection, true)
+
+  let mobileViewportTimer = 0
+  function syncMobileKeyboard() {
+    clearTimeout(mobileViewportTimer)
+    const viewport = window.visualViewport
+    const active = document.activeElement
+    const composerFocused = active instanceof Element
+      && active.matches('textarea[placeholder="Message the agent"], textarea[placeholder="Describe what you want to build"]')
+    const coveredHeight = mobileSidebarQuery.matches && viewport
+      ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+      : 0
+    const keyboardOpen = composerFocused && coveredHeight > 80
+    document.documentElement.style.setProperty('--balto-keyboard-inset', `${Math.round(coveredHeight)}px`)
+    document.body.classList.toggle('balto-keyboard-open', keyboardOpen)
+  }
+
+  function scheduleMobileKeyboardSync(delay = 0) {
+    clearTimeout(mobileViewportTimer)
+    mobileViewportTimer = window.setTimeout(syncMobileKeyboard, delay)
+  }
+
+  window.visualViewport?.addEventListener('resize', () => scheduleMobileKeyboardSync())
+  window.visualViewport?.addEventListener('scroll', () => scheduleMobileKeyboardSync())
+  window.addEventListener('resize', () => scheduleMobileKeyboardSync())
+  document.addEventListener('focusin', () => {
+    scheduleMobileKeyboardSync(50)
+    window.setTimeout(syncMobileKeyboard, 250)
+  })
+  document.addEventListener('focusout', () => scheduleMobileKeyboardSync(100))
+
+  let remoteRefreshActive = false
+  let remoteChanging = false
+  let remoteUrl = null
+
+  function renderRemoteStatus(status) {
+    const row = document.querySelector('#balto-remote-settings')
+    if (!row) return
+    const description = row.querySelector('.balto-remote-description')
+    const link = row.querySelector('.balto-remote-link')
+    const copy = row.querySelector('.balto-remote-copy')
+    const toggle = row.querySelector('input')
+    const enabled = Boolean(status.remoteEnabled)
+    toggle.checked = enabled
+    toggle.disabled = remoteChanging || !status.available || !status.tailscaleInstalled || !status.tailscaleSignedIn
+    remoteUrl = enabled ? status.remoteUrl : null
+    if (enabled && remoteUrl) {
+      description.textContent = 'Ready on your private tailnet'
+      link.href = remoteUrl
+      link.textContent = remoteUrl.replace(/^https:\/\//, '')
+      link.hidden = false
+      copy.hidden = false
+    } else {
+      link.hidden = true
+      copy.hidden = true
+      description.textContent = !status.available
+        ? 'Remote control is unavailable'
+        : !status.tailscaleInstalled
+          ? 'Install Tailscale on this Mac and your other device'
+          : !status.tailscaleSignedIn
+            ? 'Open Tailscale and sign this Mac into your tailnet'
+            : 'Turn on to create your private remote link'
+    }
+  }
+
+  async function refreshRemoteStatus() {
+    if (remoteRefreshActive || remoteChanging || !document.querySelector('#balto-remote-settings')) return
+    remoteRefreshActive = true
+    try {
+      const response = await fetch(remoteEndpoint, { cache: 'no-store' })
+      renderRemoteStatus(await response.json())
+    } catch {
+      renderRemoteStatus({ available: false })
+    } finally {
+      remoteRefreshActive = false
+    }
+  }
+
+  async function changeRemoteStatus(enabled) {
+    const row = document.querySelector('#balto-remote-settings')
+    if (!row || remoteChanging) return
+    remoteChanging = true
+    const description = row.querySelector('.balto-remote-description')
+    const toggle = row.querySelector('input')
+    toggle.disabled = true
+    description.textContent = enabled ? 'Creating your private remote link' : 'Turning off remote control'
+    try {
+      const response = await fetch(remoteEndpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      })
+      const status = await response.json()
+      if (!response.ok) throw new Error(status.error || 'Remote control could not be updated')
+      renderRemoteStatus(status)
+    } catch (error) {
+      description.textContent = error instanceof Error ? error.message : 'Remote control could not be updated'
+      toggle.checked = !enabled
+    } finally {
+      remoteChanging = false
+      await refreshRemoteStatus()
+    }
+  }
+
+  async function copyRemoteLink(button) {
+    if (!remoteUrl) return
+    try {
+      await navigator.clipboard.writeText(remoteUrl)
+    } catch {
+      const input = document.createElement('textarea')
+      input.value = remoteUrl
+      input.style.position = 'fixed'
+      input.style.opacity = '0'
+      document.body.append(input)
+      input.select()
+      document.execCommand('copy')
+      input.remove()
+    }
+    button.textContent = 'Copied'
+    setTimeout(() => {
+      if (button.isConnected) button.textContent = 'Copy link'
+    }, 1400)
+  }
+
+  function mountRemoteSettings() {
+    const existingRow = document.querySelector('#balto-remote-settings')
+    const dialog = [...document.querySelectorAll('[role="dialog"]')].find((candidate) =>
+      [...candidate.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'General')
+      && [...candidate.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Models'),
+    )
+    const generalButton = dialog
+      ? [...dialog.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'General')
+      : null
+    const generalIsActive = generalButton?.getAttribute('aria-current') === 'true'
+      || generalButton?.classList.contains('VOzbGW_active')
+    if (!generalIsActive) {
+      existingRow?.remove()
+      return
+    }
+    if (existingRow) return
+    const options = dialog?.querySelector('[class*="_options"]')
+    if (!options) return
+    const row = document.createElement('section')
+    row.id = 'balto-remote-settings'
+    row.innerHTML = `
+      <div class="balto-remote-copy-block">
+        <strong>Remote control</strong>
+        <span class="balto-remote-explainer">Steer Balto from your phone or another computer. Both devices need Tailscale and must use the same tailnet.</span>
+        <span class="balto-remote-description">Checking Tailscale</span>
+        <a class="balto-remote-link" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
+        <a class="balto-tailscale-help" href="https://tailscale.com/download" target="_blank" rel="noopener noreferrer">Get Tailscale</a>
+      </div>
+      <div class="balto-remote-controls">
+        <button type="button" class="balto-remote-copy" hidden>Copy link</button>
+        <label class="balto-remote-switch">
+          <input type="checkbox" aria-label="Private remote control">
+          <span aria-hidden="true"></span>
+        </label>
+      </div>
+    `
+    row.querySelector('input').addEventListener('change', (event) => void changeRemoteStatus(event.currentTarget.checked))
+    row.querySelector('.balto-remote-copy').addEventListener('click', (event) => void copyRemoteLink(event.currentTarget))
+    options.append(row)
+    void refreshRemoteStatus()
+  }
+
   let attachmentTarget = null
   function findPromptBox() {
     return document.querySelector('textarea[placeholder="Message the agent"], textarea[placeholder*="Ask anything"], textarea')
@@ -180,7 +382,9 @@
   function openAttachmentPicker(event) {
     event.preventDefault()
     event.stopPropagation()
-    attachmentTarget = findPromptBox()
+    const menu = event.currentTarget.closest('[role="listbox"]')
+    const composer = menu?.closest('[data-composer-card="true"]')
+    attachmentTarget = composer?.querySelector('textarea') || findPromptBox()
     attachmentInput().click()
     document.querySelector('button[data-balto-add="true"][aria-expanded="true"]')?.click()
   }
@@ -234,8 +438,10 @@
   openFreshSession()
   dismissInternalTestingNotice()
   brandVisibleWorkspace()
-  simplifyEffortControls()
+  brandCollapsedSidebar()
   syncMobileSidebar()
+  mountRemoteSettings()
+  simplifyEffortControls()
   mountAttachmentControl()
 
   const style = document.createElement('style')
@@ -275,12 +481,12 @@
       font-family: Inter, "Segoe UI", sans-serif;
       user-select: none;
     }
-    #balto-live-bar .balto-sprinter { width: 35px; height: 30px; position: relative; display: grid; place-items: center; overflow: visible; }
+    #balto-live-bar .balto-sprinter { width: 43px; height: 30px; position: relative; display: grid; align-items: center; justify-items: end; overflow: visible; }
     #balto-live-bar .balto-sprinter img { position: relative; z-index: 1; width: 29px; height: 29px; transform-origin: 50% 72%; animation: balto-sprint 1.15s ease-in-out infinite; }
     #balto-live-bar .balto-sprinter::before,
-    #balto-live-bar .balto-sprinter::after { content: ""; position: absolute; right: 26px; height: 2px; border-radius: 2px; background: var(--balto-speed); opacity: .28; transform-origin: right center; animation: balto-trail 1.15s ease-in-out infinite; }
-    #balto-live-bar .balto-sprinter::before { top: 10px; width: 13px; }
-    #balto-live-bar .balto-sprinter::after { top: 19px; width: 9px; animation-delay: -.18s; }
+    #balto-live-bar .balto-sprinter::after { content: ""; position: absolute; left: 0; height: 2px; border-radius: 2px; background: var(--balto-speed); opacity: .28; transform-origin: right center; animation: balto-trail 1.15s ease-in-out infinite; }
+    #balto-live-bar .balto-sprinter::before { top: 10px; width: 10px; }
+    #balto-live-bar .balto-sprinter::after { top: 19px; width: 7px; animation-delay: -.18s; }
     #balto-live-bar[data-state="live"] .balto-sprinter img { animation-duration: .42s; }
     #balto-live-bar[data-state="live"] .balto-sprinter::before,
     #balto-live-bar[data-state="live"] .balto-sprinter::after { opacity: .7; animation-duration: .42s; }
@@ -319,6 +525,30 @@
     @keyframes balto-update-pulse { from { transform: translateY(-1px); opacity: .55; } to { transform: translateY(2px); opacity: 1; } }
     [data-balto-brand="true"] { width: auto !important; display: inline-flex !important; align-items: center !important; gap: 9px !important; color: #f5f7f8 !important; }
     [data-balto-brand="true"] > img { width: 27px !important; height: 27px !important; flex: 0 0 27px; }
+    button[aria-label="Open sidebar"] > svg:not([data-balto-collapse-icon]) { display: none !important; }
+    button[aria-label="Open sidebar"] > svg[data-balto-collapse-icon] { width: 22px !important; height: 22px !important; display: block; flex: 0 0 22px; color: rgba(245,247,248,.86); }
+    button:not([aria-label="Open sidebar"]) > svg[data-balto-collapse-icon] { display: none !important; }
+    #balto-remote-settings { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 4px; padding: 22px 0 2px; border-top: 1px solid rgba(255,255,255,.1); font-family: Inter, "Segoe UI", sans-serif; }
+    .balto-remote-copy-block { min-width: 0; display: grid; gap: 5px; }
+    .balto-remote-copy-block strong { color: rgba(255,255,255,.94); font-size: 14px; font-weight: 600; }
+    .balto-remote-explainer { max-width: 510px; color: rgba(255,255,255,.7); font-size: 12px; line-height: 1.45; }
+    .balto-remote-description { color: rgba(255,255,255,.53); font-size: 12px; line-height: 1.35; }
+    .balto-remote-link { max-width: 400px; color: #72dba5; font-size: 12px; line-height: 1.35; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .balto-remote-link:hover { text-decoration: underline; }
+    .balto-tailscale-help { width: fit-content; color: #7ca9ff; font-size: 12px; line-height: 1.35; text-decoration: none; }
+    .balto-tailscale-help:hover { text-decoration: underline; }
+    .balto-remote-controls { display: flex; align-items: center; gap: 11px; }
+    .balto-remote-copy { height: 30px; padding: 0 12px; border: 1px solid rgba(255,255,255,.14); border-radius: 15px; color: rgba(255,255,255,.82); background: rgba(255,255,255,.05); cursor: pointer; font: 500 12px/1 Inter, "Segoe UI", sans-serif; white-space: nowrap; }
+    .balto-remote-copy[hidden] + .balto-remote-switch { margin-left: auto; }
+    .balto-remote-copy:hover { background: rgba(255,255,255,.09); }
+    .balto-remote-switch { position: relative; width: 42px; height: 24px; flex: 0 0 42px; }
+    .balto-remote-switch input { position: absolute; opacity: 0; pointer-events: none; }
+    .balto-remote-switch span { position: absolute; inset: 0; border-radius: 999px; background: rgba(255,255,255,.14); cursor: pointer; transition: background .18s ease; }
+    .balto-remote-switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #b9c0c8; box-shadow: 0 1px 4px rgba(0,0,0,.35); transition: transform .18s ease, background .18s ease; }
+    .balto-remote-switch input:checked + span { background: #39c989; }
+    .balto-remote-switch input:checked + span::after { transform: translateX(18px); background: #fff; }
+    .balto-remote-switch input:disabled + span { cursor: not-allowed; opacity: .46; }
+    .balto-remote-switch input:focus-visible + span { outline: 2px solid #6da5ff; outline-offset: 2px; }
     .balto-sidebar-wordmark { display: flex; align-items: baseline; gap: 7px; white-space: nowrap; font-family: Inter, "Segoe UI", sans-serif; }
     .balto-sidebar-name { font-size: 15px; font-weight: 760; letter-spacing: -.3px; }
     .balto-sidebar-label { color: rgba(245,247,248,.48); font-size: 7px; font-weight: 850; letter-spacing: 1.35px; text-transform: uppercase; }
@@ -382,26 +612,27 @@
         right: max(8px, env(safe-area-inset-right)) !important;
         height: 44px;
         gap: 5px;
-        padding: 0 9px 0 6px;
+        padding: 0 9px 0 8px;
         border-radius: 14px;
         pointer-events: none;
         transition: opacity .16s ease, transform .16s ease;
       }
       body.balto-mobile-sidebar-open #balto-live-bar { opacity: 0; transform: translateY(-8px); }
-      #balto-live-bar .balto-sprinter { width: 28px; height: 26px; }
+      #balto-live-bar .balto-sprinter { width: 38px; height: 26px; }
       #balto-live-bar .balto-sprinter img { width: 25px; height: 25px; }
-      #balto-live-bar .balto-sprinter::before, #balto-live-bar .balto-sprinter::after { right: 22px; }
       #balto-live-bar .balto-meter { min-width: 64px; gap: 4px; }
       #balto-live-bar .balto-value { font-size: 20px; letter-spacing: -1px; }
       #balto-live-bar .balto-unit { font-size: 7px; letter-spacing: .5px; }
       #balto-update-button { width: 30px; height: 30px; flex-basis: 30px; border-radius: 9px; }
-      .wSkVaW_root { --dsh-chat-content-width: 100%; --dsh-composer-card-max-width: 100%; --dsh-composer-side-clearance: 8px; }
+      .wSkVaW_root { --dsh-chat-content-width: 100%; --dsh-composer-card-max-width: 100%; --dsh-composer-side-clearance: 0px; }
       .wSkVaW_header { position: relative; min-height: 88px !important; padding: 0 !important; }
       .wSkVaW_titleRow { display: none !important; }
       .wSkVaW_tabs { position: absolute !important; right: 0; bottom: 8px; left: 0; width: 100%; margin: 0 !important; padding: 0 !important; justify-content: center !important; gap: 32px !important; }
       .Md3f7G_scroll { padding: 12px 16px; }
-      .uV2eYG_root { padding: 0 8px calc(8px + env(safe-area-inset-bottom)); }
-      .uV2eYG_card { gap: 8px; border-radius: 18px; }
+      .uV2eYG_root { width: 100% !important; max-width: none !important; padding: 0 0 calc(8px + env(safe-area-inset-bottom)) !important; }
+      .uV2eYG_card { width: 100% !important; max-width: none !important; gap: 8px; border-radius: 18px; }
+      body.balto-keyboard-open .wSkVaW_composerStack { position: relative; z-index: 1300; transform: translateY(calc(-1 * var(--balto-keyboard-inset, 0px))); }
+      body.balto-keyboard-open .Md3f7G_scroll { padding-bottom: calc(128px + var(--balto-keyboard-inset, 0px)); }
       .uV2eYG_input, .uV2eYG_mirror, .uV2eYG_backdrop { font-size: 16px; padding-inline: 13px; }
       .uV2eYG_row { min-width: 0; gap: 6px; padding: 2px 6px 6px; }
       .uV2eYG_tools { flex: 0 0 auto; gap: 8px; }
@@ -412,6 +643,9 @@
       ._7KE1Ra_triggerLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       ._7KE1Ra_menu { right: -46px !important; left: auto !important; max-width: calc(100vw - 24px) !important; }
       .uV2eYG_select { max-width: 136px; padding-left: 5px; }
+      .balto-static-model { max-width: 112px; overflow: hidden; text-overflow: ellipsis; }
+      .uV2eYG_root .FJxK0a_root,
+      .uV2eYG_root [role="tooltip"] { display: none !important; }
       [role="tooltip"] { display: none !important; }
       .balto-attachment-option { min-height: 44px; }
       .VOzbGW_overlay { align-items: stretch !important; padding: 0 !important; }
@@ -424,13 +658,17 @@
       .VOzbGW_content { min-height: 0 !important; flex: 1 1 auto !important; }
       .VOzbGW_header { height: 48px !important; padding: 8px 10px !important; }
       .VOzbGW_options { min-height: 0 !important; padding: 0 16px calc(20px + env(safe-area-inset-bottom)) !important; overscroll-behavior: contain; }
+      #balto-remote-settings { align-items: stretch; flex-direction: column; gap: 14px; padding-top: 18px; }
+      .balto-remote-copy-block { width: 100%; }
+      .balto-remote-controls { width: 100%; justify-content: space-between; }
+      .balto-remote-copy { min-height: 38px; }
+      .balto-remote-link { max-width: calc(100vw - 32px); overflow-wrap: anywhere; white-space: normal; }
     }
     @media (max-width: 360px) {
       #balto-live-bar { padding-right: 7px; }
       #balto-live-bar .balto-meter { min-width: 56px; }
       #balto-live-bar .balto-value { font-size: 18px; }
       .Md3f7G_scroll { padding-inline: 12px; }
-      .uV2eYG_root { padding-inline: 6px; }
       .uV2eYG_tools { gap: 4px; }
       ._7KE1Ra_root { max-width: 88px; }
     }
@@ -575,9 +813,13 @@
     }
     dismissInternalTestingNotice()
     brandVisibleWorkspace()
-    simplifyEffortControls()
+    brandCollapsedSidebar()
     syncMobileSidebar()
+    mountRemoteSettings()
+    simplifyEffortControls()
     mountAttachmentControl()
     requestAnimationFrame(positionSpeedBar)
   }).observe(document.body, { childList: true, characterData: true, subtree: true })
+
+  setInterval(() => void refreshRemoteStatus(), 4000)
 })()

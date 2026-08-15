@@ -30,6 +30,7 @@ The beta is signed with Adore LLC's Developer ID, notarized by Apple, and staple
 | ✅ | Terminal and workspace file tools |
 | ✅ | Web search and page fetching |
 | ✅ | Mac computer control tools |
+| ✅ | Private remote steering through Tailscale |
 | ✅ | Image paste, drag, and file attachment |
 | ✅ | Live tokens-per-second meter |
 | ✅ | Automatic compaction and long-job continuation |
@@ -48,6 +49,12 @@ Balto uses MTPLX 2.7 Optimized Speed, the recommended coding build. MTPLX's M5 M
 | M1/M2/M3/M4/M5 Pro or Max | 32 GB | 32K | Hardware dependent |
 
 Intel Macs and Macs with less than 32 GB of unified memory are not supported.
+
+## Private remote steering
+
+Open **Settings > General > Remote control** to create a private link for your phone or another computer. Install Tailscale and sign both devices into the same tailnet, turn the switch on, then copy the link.
+
+Balto uses Tailscale Serve. It does not enable Funnel or open a router port. Turning remote control off or quitting Balto removes Balto's two routes without changing other Tailscale services.
 
 ## Test it
 
