@@ -4,6 +4,7 @@ import { copyFile, mkdir, readFile, readdir, rename, unlink, writeFile } from 'n
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
+import { hasBaltoRoute, routeIsOccupied, routeProxy } from './tailscale-routes.mjs'
 
 const execFileAsync = promisify(execFile)
 const [action, dataRootArg, resourcesArg] = process.argv.slice(2)
@@ -45,6 +46,12 @@ const enginePort = 30000
 const gatewayPort = 30100
 const workspacePort = 3080
 const visionDownloadBytes = 921_460_192
+const tailscaleCandidates = [
+  '/usr/local/bin/tailscale',
+  '/opt/homebrew/bin/tailscale',
+  '/Applications/Tailscale.app/Contents/MacOS/Tailscale',
+]
+const tailscaleEnvironment = { TAILSCALE_BE_CLI: '1' }
 
 function modelSpec(info = hardware()) {
   return /Apple M[12]\b/i.test(info.chip) ? modelVariants.legacy : modelVariants.modern
@@ -182,6 +189,62 @@ function childAlive(name) {
   }
 }
 
+function tailscaleBinary() {
+  return tailscaleCandidates.find((candidate) => existsSync(candidate)) || null
+}
+
+async function tailscaleInfo() {
+  const binary = tailscaleBinary()
+  const result = { binary, installed: Boolean(binary), signedIn: false, dnsName: null }
+  if (!binary) return result
+  try {
+    const { stdout } = await execFileAsync(binary, ['status', '--json'], {
+      env: { ...process.env, ...tailscaleEnvironment },
+      maxBuffer: 8 * 1024 * 1024,
+    })
+    const status = JSON.parse(stdout)
+    result.signedIn = status.BackendState === 'Running'
+    result.dnsName = status.Self?.DNSName?.replace(/\.$/, '') || null
+  } catch (error) {
+    log(`Tailscale status failed: ${error?.message || error}`)
+  }
+  return result
+}
+
+async function tailscaleServeConfig(info, { allowFailure = false } = {}) {
+  if (!info?.binary) {
+    if (allowFailure) return null
+    throw new Error('Install Tailscale on this Mac, sign in, then turn on remote control again.')
+  }
+  try {
+    const { stdout } = await execFileAsync(info.binary, ['serve', 'status', '--json'], {
+      env: { ...process.env, ...tailscaleEnvironment },
+      maxBuffer: 8 * 1024 * 1024,
+    })
+    return JSON.parse(stdout || '{}')
+  } catch (error) {
+    log(`Tailscale Serve status failed: ${error?.message || error}`)
+    if (allowFailure) return null
+    throw new Error('Balto could not inspect your Tailscale Serve routes. Open Tailscale and try again.')
+  }
+}
+
+async function tailscaleRemoteStatus() {
+  const info = await tailscaleInfo()
+  let remoteEnabled = false
+  if (info.binary && info.signedIn && info.dnsName) {
+    const serve = await tailscaleServeConfig(info, { allowFailure: true })
+    remoteEnabled = Boolean(serve)
+      && hasBaltoRoute(serve, info.dnsName, workspacePort)
+      && hasBaltoRoute(serve, info.dnsName, gatewayPort)
+  }
+  return {
+    ...info,
+    remoteEnabled,
+    remoteUrl: remoteEnabled ? `https://${info.dnsName}:${workspacePort}` : null,
+  }
+}
+
 async function endpointReady(url, timeout = 1200) {
   try {
     const response = await fetch(url, { signal: AbortSignal.timeout(timeout), cache: 'no-store' })
@@ -195,6 +258,7 @@ async function refreshStatus({ preservePhase = false } = {}) {
   const current = await readState()
   let info
   try { info = hardware() } catch {}
+  const tailscale = await tailscaleRemoteStatus()
   const inferenceReady = Boolean(childAlive('engine')) && await endpointReady(`http://127.0.0.1:${enginePort}/v1/models`)
   const gatewayReady = Boolean(childAlive('gateway')) && await endpointReady(`http://127.0.0.1:${gatewayPort}/health`)
   const workspaceReady = gatewayReady && Boolean(childAlive('workspace')) && await endpointReady(`http://127.0.0.1:${workspacePort}/`)
@@ -205,6 +269,11 @@ async function refreshStatus({ preservePhase = false } = {}) {
     contextWindow: info?.contextWindow || current.contextWindow,
     dockerInstalled: runtimeInstalled,
     dockerReady: runtimeInstalled,
+    tailscaleInstalled: tailscale.installed,
+    tailscaleSignedIn: tailscale.signedIn,
+    tailscaleDnsName: tailscale.dnsName,
+    remoteEnabled: tailscale.remoteEnabled,
+    remoteUrl: tailscale.remoteUrl,
     inferenceReady,
     workspaceReady,
   }
@@ -495,15 +564,100 @@ async function writeProfilePatch() {
 async function startLocalServices() {
   await updateState({ phase: 'starting', stage: 'launch', progress: 96, message: 'Starting the Balto coding workspace and local tools.' })
   await startDetached('gateway', nodeBin, [join(resources, 'gateway.mjs')], {
-    env: { BALTO_GATEWAY_PORT: String(gatewayPort), BALTO_INFERENCE_URL: `http://127.0.0.1:${enginePort}` },
+    env: {
+      BALTO_GATEWAY_PORT: String(gatewayPort),
+      BALTO_INFERENCE_URL: `http://127.0.0.1:${enginePort}`,
+      BALTO_DATA: dataRoot,
+      BALTO_RESOURCES: resources,
+      BALTO_NODE: nodeBin,
+    },
   })
   await waitFor(`http://127.0.0.1:${gatewayPort}/health`, 30, 'The Balto model gateway did not start.')
   const profilePatch = await writeProfilePatch()
-  await startDetached('workspace', nodeBin, [dshEntry, '--profile', 'web', '--patch', profilePatch, '--host', '127.0.0.1', '--port', String(workspacePort)], {
+  const workspaceArguments = [dshEntry, '--profile', 'web', '--patch', profilePatch, '--host', '127.0.0.1', '--port', String(workspacePort)]
+  const tailscale = await tailscaleInfo()
+  if (tailscale.signedIn && tailscale.dnsName) {
+    workspaceArguments.push('--trusted-host', `${tailscale.dnsName}:${workspacePort}`)
+  }
+  await startDetached('workspace', nodeBin, workspaceArguments, {
     cwd: workspaceRoot,
     env: { DSH_HOME: dshHome, PATH: `${dirname(nodeBin)}:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin` },
   })
   await waitFor(`http://127.0.0.1:${workspacePort}/`, 90, 'The Balto coding workspace did not start.')
+}
+
+async function runTailscale(args, { allowFailure = false } = {}) {
+  const binary = tailscaleBinary()
+  if (!binary) {
+    if (allowFailure) return false
+    throw new Error('Install Tailscale on this Mac, sign in, then turn on remote control again.')
+  }
+  try {
+    await run(binary, args, { env: tailscaleEnvironment, prefix: 'tailscale' })
+    return true
+  } catch (error) {
+    if (allowFailure) {
+      log(`Tailscale command was skipped: ${error?.message || error}`)
+      return false
+    }
+    throw error
+  }
+}
+
+async function enableRemote() {
+  const state = await refreshStatus({ preservePhase: true })
+  if (!state.workspaceReady) throw new Error('Start Balto before enabling private remote control.')
+  if (!state.tailscaleInstalled) throw new Error('Install Tailscale on this Mac, sign in, then turn on remote control again.')
+  if (!state.tailscaleSignedIn || !state.tailscaleDnsName) throw new Error('Open Tailscale and sign in, then turn on remote control again.')
+
+  const tailscale = await tailscaleInfo()
+  if (!tailscale.signedIn || !tailscale.dnsName) throw new Error('Open Tailscale and sign in, then turn on remote control again.')
+  const before = await tailscaleServeConfig(tailscale)
+  const routes = [
+    { port: workspacePort, target: workspacePort },
+    { port: gatewayPort, target: gatewayPort },
+  ]
+  for (const route of routes) {
+    if (routeIsOccupied(before, tailscale.dnsName, route.port) && !hasBaltoRoute(before, tailscale.dnsName, route.port, route.target)) {
+      const owner = routeProxy(before, tailscale.dnsName, route.port) || 'another Tailscale service'
+      throw new Error(`Tailscale port ${route.port} is already used by ${owner}. Balto left it unchanged.`)
+    }
+  }
+  const existing = new Map(routes.map((route) => [route.port, hasBaltoRoute(before, tailscale.dnsName, route.port, route.target)]))
+
+  await updateState({ message: 'Creating your private Balto link with Tailscale.' })
+  await stopProcess('workspace')
+  await startLocalServices()
+  try {
+    for (const route of routes) {
+      if (!existing.get(route.port)) {
+        await runTailscale(['serve', '--bg', '--yes', `--https=${route.port}`, `127.0.0.1:${route.target}`])
+      }
+    }
+    const updated = await refreshStatus()
+    if (!updated.remoteEnabled || !updated.remoteUrl) throw new Error('Tailscale did not finish creating the private Balto link. Try again in a moment.')
+  } catch (error) {
+    for (const route of routes) {
+      if (!existing.get(route.port)) {
+        await runTailscale(['serve', '--yes', `--https=${route.port}`, 'off'], { allowFailure: true })
+      }
+    }
+    await refreshStatus({ preservePhase: true })
+    throw error
+  }
+}
+
+async function disableRemote({ preservePhase = false } = {}) {
+  const tailscale = await tailscaleInfo()
+  const serve = await tailscaleServeConfig(tailscale, { allowFailure: true })
+  if (serve && tailscale.dnsName) {
+    for (const port of [workspacePort, gatewayPort]) {
+      if (hasBaltoRoute(serve, tailscale.dnsName, port)) {
+        await runTailscale(['serve', '--yes', `--https=${port}`, 'off'], { allowFailure: true })
+      }
+    }
+  }
+  await refreshStatus({ preservePhase })
 }
 
 async function installAndStart() {
@@ -524,6 +678,7 @@ async function stopEverything() {
   if (currentAction && currentAction !== process.pid) {
     try { process.kill(-currentAction, 'SIGTERM') } catch { try { process.kill(currentAction, 'SIGTERM') } catch {} }
   }
+  await disableRemote({ preservePhase: true })
   await stopProcess('workspace')
   await stopProcess('gateway')
   await stopProcess('engine')
@@ -545,6 +700,8 @@ async function main() {
       await startLocalServices()
       await refreshStatus()
     } else if (action === 'stop') await stopEverything()
+    else if (action === 'remote-on') await enableRemote()
+    else if (action === 'remote-off') await disableRemote()
     else throw new Error(`Unknown Balto action: ${action}`)
     log(`Action completed: ${action}`)
   } catch (error) {

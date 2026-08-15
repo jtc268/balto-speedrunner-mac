@@ -70,6 +70,34 @@ test('closing the app synchronously stops every owned process group', async () =
   assert.match(native, /stop_everything\(app_handle\)/)
 })
 
+test('private remote control uses scoped Tailscale Serve routes and stops with Balto', async () => {
+  const runtime = await read('runtime/balto.mjs')
+  const gateway = await read('runtime/gateway.mjs')
+  const ui = await read('runtime/assets/balto-ui.js')
+
+  assert.match(runtime, /TAILSCALE_BE_CLI: '1'/)
+  assert.match(runtime, /\/Applications\/Tailscale\.app\/Contents\/MacOS\/Tailscale/)
+  assert.match(runtime, /'--trusted-host', `\$\{tailscale\.dnsName\}:\$\{workspacePort\}`/)
+  assert.match(runtime, /\['serve', '--bg', '--yes', `--https=\$\{route\.port\}`/)
+  assert.match(runtime, /\['serve', '--yes', `--https=\$\{route\.port\}`, 'off'\]/)
+  assert.match(runtime, /\['serve', '--yes', `--https=\$\{port\}`, 'off'\]/)
+  assert.match(runtime, /await disableRemote\(\{ preservePhase: true \}\)/)
+  assert.match(runtime, /routeIsOccupied\(before/)
+  assert.match(runtime, /Balto left it unchanged/)
+  assert.match(runtime, /if \(!existing\.get\(route\.port\)\)/)
+  assert.match(runtime, /if \(hasBaltoRoute\(serve, tailscale\.dnsName, port\)\)/)
+  assert.doesNotMatch(runtime, /serve.*reset|funnel/i)
+
+  assert.match(gateway, /requestUrl\.pathname === '\/remote'/)
+  assert.match(gateway, /hostname === configuredTailscaleDnsName\(\)/)
+  assert.match(gateway, /enabled \? 'remote-on' : 'remote-off'/)
+  assert.match(ui, /Steer Balto from your phone or another computer/)
+  assert.match(ui, /https:\/\/tailscale\.com\/download/)
+  assert.match(ui, /id = 'balto-remote-settings'/)
+  assert.match(ui, /window\.visualViewport/)
+  assert.match(ui, /closeMobileSidebarAfterSelection/)
+})
+
 test('Mac bundle is native, movable, updateable, and uses one embedded window', async () => {
   const config = JSON.parse(await read('src-tauri/tauri.conf.json'))
   const html = await read('src/index.html')
@@ -223,4 +251,11 @@ test('product UI is Mac-first and subscription-free', async () => {
   assert.equal(config.bundle.resources['../THIRD_PARTY_NOTICES.md'], 'THIRD_PARTY_NOTICES.md')
   assert.match(app, /Apple M5 Max/)
   assert.doesNotMatch(`${html}\n${app}`, /RTX 5090|Windows 11|NVFP4|SGLang/)
+})
+
+test('README explains private remote steering without public exposure', async () => {
+  const readme = await read('README.md')
+  assert.match(readme, /Settings > General > Remote control/)
+  assert.match(readme, /Tailscale Serve/)
+  assert.match(readme, /does not enable Funnel or open a router port/)
 })

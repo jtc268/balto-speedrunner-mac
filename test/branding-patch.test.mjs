@@ -97,6 +97,11 @@ test('live meter, attachment control, and mobile shell are present', async () =>
   assert.match(script, /const mobileSidebarQuery = window\.matchMedia\('\(max-width: 720px\)'\)/)
   assert.match(script, /#balto-mobile-sidebar-backdrop/)
   assert.match(script, /\.VOzbGW_panel \{ width: 100vw !important/)
+  assert.match(script, /window\.visualViewport/)
+  assert.match(script, /body\.balto-keyboard-open/)
+  assert.match(script, /closeMobileSidebarAfterSelection/)
+  assert.match(script, /#balto-remote-settings/)
+  assert.match(script, /Copy link/)
 })
 
 test('signed updater stays available inside the coding workspace', async () => {
