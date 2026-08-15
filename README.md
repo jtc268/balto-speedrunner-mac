@@ -1,10 +1,12 @@
 <p align="center">
-  <img src=".github/assets/readme-hero.svg" alt="Balto Speedrunner: 2x+ inference speed for Qwen 3.8 27B on Mac" width="100%">
+  <img src=".github/assets/readme-hero.svg" alt="Balto. Double your inference speed with Qwen 3.8 27B on Apple Silicon." width="100%">
 </p>
 
 <p align="center">
-  <a href="https://github.com/jtc268/balto-speedrunner-mac/releases/download/v0.1.0-beta.2/Balto-Speedrunner-0.1.0-beta.2-arm64.dmg"><img alt="Download Balto Speedrunner for Mac" src=".github/assets/download-mac.svg" width="560"></a>
+  <a href="https://github.com/jtc268/balto-speedrunner-mac/releases/latest/download/Balto-Speedrunner-Mac-arm64.dmg"><img alt="Download Balto Speedrunner for Mac" src=".github/assets/download-mac.svg" width="680"></a>
 </p>
+
+<p align="center"><sub>On Windows? <a href="https://github.com/jtc268/balto-speedrunner">Get Balto for Windows</a></sub></p>
 
 <p align="center"><strong>macOS 14 or newer | Apple Silicon | 32 GB unified memory minimum</strong></p>
 
@@ -17,7 +19,7 @@ Balto Speedrunner installs the Qwen 3.8 27B Optimized Speed model, MTPLX 2.7, an
 3. Double-click Balto. It installs into Applications, opens, and ejects the installer disk.
 4. Leave Balto open while it downloads the model and completes setup.
 
-The beta is signed with Adore LLC's Apple Developer ID. Apple notarization is still pending, so macOS may require Control-click, then **Open**, on the first launch.
+The beta is signed with Adore LLC's Developer ID, notarized by Apple, and stapled for a clean first launch.
 
 ## What is included
 
@@ -70,7 +72,7 @@ The optimized model weights and MTPLX runtime are downloaded during first launch
 
 ## Signing
 
-Release builds support Apple Developer ID signing, notarization, stapling, and signed in-app updates. The current public beta is Developer ID signed and awaiting notarization.
+Every release is Developer ID signed, notarized by Apple, stapled, and checked by Gatekeeper before publication. In-app updates are signed separately and installed from the update arrow.
 
 ## Credits
 

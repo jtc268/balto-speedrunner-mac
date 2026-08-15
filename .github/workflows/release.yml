@@ -44,19 +44,36 @@ jobs:
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
 
-      - name: Build, notarize, staple, sign updater, and publish
-        uses: tauri-apps/tauri-action@v0
+      - name: Prepare Apple notarization and sign bundled helpers
+        env:
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          test -n "$APPLE_API_PRIVATE_KEY"
+          test -n "$APPLE_API_KEY_ID"
+          test -n "$APPLE_SIGNING_IDENTITY"
+          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
+          chmod 600 "$api_key_path"
+          codesign --force --timestamp --options runtime --sign "$APPLE_SIGNING_IDENTITY" runtime/uv/uv
+          codesign --force --timestamp --options runtime --sign "$APPLE_SIGNING_IDENTITY" runtime/uv/uvx
+          codesign --verify --strict --verbose=2 runtime/uv/uv
+          codesign --verify --strict --verbose=2 runtime/uv/uvx
+
+      - name: Build, notarize, staple, and sign updater
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_PATH: ${{ runner.temp }}/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
-          releaseName: Balto Speedrunner for Mac v__VERSION__
+          tagName: ${{ github.ref_name }}
+          releaseName: Balto Speedrunner for Mac ${{ github.ref_name }}
           releaseBody: |
             Signed and Apple-notarized Balto Speedrunner for Apple Silicon.
 
@@ -64,3 +81,22 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target aarch64-apple-darwin --bundles app,dmg
+
+      - name: Gate release with Apple verification
+        run: |
+          app="src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Balto Speedrunner.app"
+          dmg="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -d "$app"
+          test -f "$dmg"
+          xcrun stapler staple "$app"
+          xcrun stapler staple "$dmg"
+          scripts/verify-release.sh "$app" "$dmg"
+
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dmg="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          cp "$dmg" "$RUNNER_TEMP/Balto-Speedrunner-Mac-arm64.dmg"
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/Balto-Speedrunner-Mac-arm64.dmg" --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease=false --latest
