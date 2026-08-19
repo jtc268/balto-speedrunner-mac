@@ -28,7 +28,7 @@ const npmCli = join(resources, 'node', 'lib', 'node_modules', 'npm', 'bin', 'npm
 const uvBin = join(resources, 'uv', 'uv')
 const mtplxBin = join(venvRoot, 'bin', 'mtplx')
 const dshEntry = join(dshRoot, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
-const engineVersion = '2.7.0'
+const engineVersion = '2.8.3'
 const modelVariants = {
   modern: {
     repo: 'Youssofal/Qwen3.8-27B-MTPLX-Optimized-Speed',
